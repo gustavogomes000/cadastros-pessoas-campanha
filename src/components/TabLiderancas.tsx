@@ -332,8 +332,8 @@ export default function TabLiderancas({ refreshKey, onSaved }: Props) {
           <Info label="Bairros" value={l.bairros_influencia} />
           <Info label="Comunidades" value={l.comunidades_influencia} />
           <Info label="Origem" value={l.origem_captacao} />
-          <Info label="Apoiadores" value={l.apoiadores_estimados?.toString()} />
-          <Info label="Meta votos" value={l.meta_votos?.toString()} />
+          <Info label="Possíveis votos" value={l.apoiadores_estimados?.toString()} />
+          <Info label="Quantos votos pode trazer" value={l.meta_votos?.toString()} />
           <Info label="Comprometimento" value={l.nivel_comprometimento} />
           {l.observacoes && (
             <div className="pt-2">
