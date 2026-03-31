@@ -1,7 +1,7 @@
-const CACHE_NAME = 'rede-sarelli-v1';
+const CACHE_NAME = 'rede-sarelli-v2';
 const OFFLINE_URLS = ['/', '/index.html'];
 
-// Install: cache shell
+// Install
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(OFFLINE_URLS))
@@ -21,21 +21,17 @@ self.addEventListener('activate', (event) => {
 
 // Fetch: network-first, fallback to cache
 self.addEventListener('fetch', (event) => {
-  // Skip non-GET and chrome-extension requests
   if (event.request.method !== 'GET') return;
   if (event.request.url.startsWith('chrome-extension')) return;
-  // Never cache OAuth routes
   if (event.request.url.includes('/~oauth')) return;
+  if (event.request.url.includes('nominatim')) return;
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Cache successful responses
         if (response.status === 200) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, clone);
-          });
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
       })
@@ -43,14 +39,14 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Background sync for location
+// Background sync
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-location') {
     event.waitUntil(captureAndSendLocation());
   }
 });
 
-// Periodic background sync (if browser supports)
+// Periodic background sync
 self.addEventListener('periodicsync', (event) => {
   if (event.tag === 'location-sync') {
     event.waitUntil(captureAndSendLocation());
@@ -58,13 +54,11 @@ self.addEventListener('periodicsync', (event) => {
 });
 
 async function captureAndSendLocation() {
-  // Try getting location from cache or IP
   try {
     const res = await fetch('https://ipapi.co/json/');
     if (res.ok) {
       const data = await res.json();
       if (data.latitude && data.longitude) {
-        // Queue for when online
         const clients = await self.clients.matchAll();
         clients.forEach((client) => {
           client.postMessage({

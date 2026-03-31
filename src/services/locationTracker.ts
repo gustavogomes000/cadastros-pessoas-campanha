@@ -1,690 +1,426 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// ── Config ──────────────────────────────────────────────────────────────────
 export const CAPTURE_INTERVALS = [5, 10, 15, 20] as const;
 export type CaptureIntervalMinutes = (typeof CAPTURE_INTERVALS)[number];
 
-const DEFAULT_CAPTURE_INTERVAL: CaptureIntervalMinutes = 5;
-const CAPTURE_INTERVAL_STORAGE_KEY = 'rastro-capture-interval';
-const LAST_LOCATION_STORAGE_KEY = 'rastro-last-location-v2';
-const LIVE_TRACKING_EVENT = 'location-tracking-update';
+const DEFAULT_INTERVAL: CaptureIntervalMinutes = 5;
+const STORAGE_KEY_INTERVAL = 'rastro-interval';
+const LIVE_EVENT = 'location-tracking-update';
+const IDB_NAME = 'rastro-db';
+const IDB_STORE = 'locations';
+const IDB_VERSION = 1;
 
-const USER_ID_CACHE_TTL_MS = 5 * 60_000;
-const UI_EMIT_THROTTLE_MS = 1_500;
-const UI_MOVE_THRESHOLD_METERS = 3;
-const WATCH_PERSIST_COOLDOWN_MS = 2_000;
-const DB_MOVE_THRESHOLD_METERS = 30;
-const GEOLOCATION_FALLBACK_COOLDOWN_MS = 20_000;
+const IP_PROVIDERS = [
+  { url: 'https://ipapi.co/json/', extract: (d: any) => ({ lat: d?.latitude, lng: d?.longitude }) },
+  { url: 'https://ipwho.is/', extract: (d: any) => ({ lat: d?.latitude, lng: d?.longitude }) },
+  { url: 'https://ip-api.com/json/?fields=lat,lon', extract: (d: any) => ({ lat: d?.lat, lng: d?.lon }) },
+];
 
-type LocationSource = 'gps' | 'ip' | 'ip_background' | string;
-
-interface CoordinatesPayload {
-  lat: number;
-  lng: number;
-  accuracy: number | null;
-}
-
-interface LocationInsert {
-  usuario_id: string;
-  latitude: number;
-  longitude: number;
-  precisao: number | null;
-  fonte: LocationSource;
-  bateria_nivel: number | null;
-  em_movimento: boolean;
-  user_agent: string;
-}
-
+// ── Types ───────────────────────────────────────────────────────────────────
 export interface LiveTrackingPoint {
+  id?: string;
   usuario_id: string | null;
   latitude: number;
   longitude: number;
   precisao: number | null;
-  fonte: LocationSource;
+  fonte: string;
   bateria_nivel: number | null;
   em_movimento: boolean;
   criado_em: string;
-  pending?: boolean;
+  endereco?: string | null;
+  synced?: boolean;
 }
 
-const IP_PROVIDERS = [
-  { url: 'https://ipapi.co/json/', extract: (data: any) => ({ lat: data?.latitude, lng: data?.longitude }) },
-  { url: 'https://ipwho.is/', extract: (data: any) => ({ lat: data?.latitude, lng: data?.longitude }) },
-  { url: 'https://ip-api.com/json/?fields=lat,lon', extract: (data: any) => ({ lat: data?.lat, lng: data?.lon }) },
-];
-
-function isBrowserEnvironment() {
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function isBrowser() {
   return typeof window !== 'undefined' && typeof navigator !== 'undefined';
 }
 
-function isValidCaptureInterval(value: unknown): value is CaptureIntervalMinutes {
-  return CAPTURE_INTERVALS.includes(Number(value) as CaptureIntervalMinutes);
+function safeGet(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function safeSet(key: string, val: string) {
+  try { localStorage.setItem(key, val); } catch {}
 }
 
-function safeStorageGet(key: string): string | null {
-  if (!isBrowserEnvironment()) return null;
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function safeStorageSet(key: string, value: string) {
-  if (!isBrowserEnvironment()) return;
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // Ignore storage errors.
-  }
-}
-
-function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const earthRadius = 6_371_000;
+function distM(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6_371_000;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function movedBeyond(
-  fromLat: number | null,
-  fromLng: number | null,
-  toLat: number,
-  toLng: number,
-  thresholdMeters: number,
-) {
-  if (fromLat === null || fromLng === null) return true;
-  return distanceMeters(fromLat, fromLng, toLat, toLng) >= thresholdMeters;
-}
-
-class LocationTrackerSingleton {
-  private started = false;
-  private watchId: number | null = null;
-  private persistIntervalId: ReturnType<typeof setInterval> | null = null;
-
-  private visibilityHandler: (() => void) | null = null;
-  private focusHandler: (() => void) | null = null;
-  private blurHandler: (() => void) | null = null;
-  private backgroundLocationHandler: ((event: Event) => void) | null = null;
-
-  private lastPersistAt = 0;
-  private lastPersistLat: number | null = null;
-  private lastPersistLng: number | null = null;
-  private lastUiEmitAt = 0;
-  private lastUiLat: number | null = null;
-  private lastUiLng: number | null = null;
-
-  private lastKnownCoords: CoordinatesPayload | null = null;
-  private lastKnownSource: LocationSource = 'gps';
-  private lastGeolocationFallbackAt = 0;
-
-  private cachedUsuarioId: string | null = null;
-  private cachedUsuarioIdExpiry = 0;
-
-  private isBrowser() {
-    return isBrowserEnvironment();
-  }
-
-  private hasGeolocation() {
-    return this.isBrowser() && 'geolocation' in navigator;
-  }
-
-  private hasSecureGeolocation() {
-    return this.hasGeolocation() && window.isSecureContext;
-  }
-
-  private resetRuntimeState() {
-    this.lastPersistAt = 0;
-    this.lastPersistLat = null;
-    this.lastPersistLng = null;
-    this.lastUiEmitAt = 0;
-    this.lastUiLat = null;
-    this.lastUiLng = null;
-    this.lastKnownCoords = null;
-    this.lastKnownSource = 'gps';
-    this.lastGeolocationFallbackAt = 0;
-  }
-
-  private resetCachedUsuarioId() {
-    this.cachedUsuarioId = null;
-    this.cachedUsuarioIdExpiry = 0;
-  }
-
-  private readCachedPoint(): LiveTrackingPoint | null {
-    try {
-      const raw = safeStorageGet(LAST_LOCATION_STORAGE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as LiveTrackingPoint;
-      if (!Number.isFinite(parsed.latitude) || !Number.isFinite(parsed.longitude)) return null;
-      return parsed;
-    } catch {
-      return null;
-    }
-  }
-
-  private emitLiveTrackingUpdate(point: LiveTrackingPoint) {
-    if (!this.isBrowser()) return;
-
-    safeStorageSet(LAST_LOCATION_STORAGE_KEY, JSON.stringify(point));
-    window.dispatchEvent(new CustomEvent(LIVE_TRACKING_EVENT, { detail: point }));
-
-    this.lastUiEmitAt = Date.now();
-    this.lastUiLat = point.latitude;
-    this.lastUiLng = point.longitude;
-  }
-
-  private async getBatteryLevel(): Promise<number | null> {
-    if (!this.isBrowser()) return null;
-
-    try {
-      const battery = await (navigator as Navigator & { getBattery?: () => Promise<{ level: number }> }).getBattery?.();
-      return battery ? Math.round(battery.level * 100) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  private async getUsuarioId(forceRefresh = false): Promise<string | null> {
-    const now = Date.now();
-
-    if (!forceRefresh && this.cachedUsuarioId && now < this.cachedUsuarioIdExpiry) {
-      return this.cachedUsuarioId;
-    }
-
-    try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError || !user) {
-        this.resetCachedUsuarioId();
-        return null;
-      }
-
-      const { data, error } = await supabase
-        .from('hierarquia_usuarios')
-        .select('id, criado_em')
-        .eq('auth_user_id', user.id)
-        .neq('ativo', false)
-        .order('criado_em', { ascending: false })
-        .limit(1);
-
-      const selected = data?.[0]?.id ?? null;
-
-      if (error || !selected) {
-        this.resetCachedUsuarioId();
-        console.warn('[locationTracker] usuário sem vínculo ativo para rastreio', error?.message ?? user.id);
-        return null;
-      }
-
-      this.cachedUsuarioId = selected;
-      this.cachedUsuarioIdExpiry = now + USER_ID_CACHE_TTL_MS;
-      return this.cachedUsuarioId;
-    } catch (error) {
-      this.resetCachedUsuarioId();
-      console.error('[locationTracker] falha ao resolver usuário de rastreio', error);
-      return null;
-    }
-  }
-
-  private async persistLocation(payload: LocationInsert) {
-    let { error } = await supabase.from('localizacoes_usuarios').insert(payload);
-    if (!error) return true;
-
-    this.resetCachedUsuarioId();
-    const refreshedUsuarioId = await this.getUsuarioId(true);
-
-    if (!refreshedUsuarioId) {
-      console.error('[locationTracker] falha ao persistir localização (sem usuário válido)', error);
-      return false;
-    }
-
-    const retry = await supabase
-      .from('localizacoes_usuarios')
-      .insert({ ...payload, usuario_id: refreshedUsuarioId });
-
-    if (retry.error) {
-      console.error('[locationTracker] erro ao persistir localização', retry.error);
-      return false;
-    }
-
-    this.cachedUsuarioId = refreshedUsuarioId;
-    this.cachedUsuarioIdExpiry = Date.now() + USER_ID_CACHE_TTL_MS;
-    return true;
-  }
-
-  private shouldEmitToUi(now: number, lat: number, lng: number, forcePersist: boolean) {
-    if (forcePersist) return true;
-    const movedEnough = movedBeyond(this.lastUiLat, this.lastUiLng, lat, lng, UI_MOVE_THRESHOLD_METERS);
-    return movedEnough || now - this.lastUiEmitAt >= UI_EMIT_THROTTLE_MS;
-  }
-
-  private shouldPersistToDb(now: number, lat: number, lng: number, forcePersist: boolean) {
-    if (forcePersist || this.lastPersistAt === 0) return true;
-    if (now - this.lastPersistAt < WATCH_PERSIST_COOLDOWN_MS) return false;
-    return movedBeyond(this.lastPersistLat, this.lastPersistLng, lat, lng, DB_MOVE_THRESHOLD_METERS);
-  }
-
-  private isPermissionDenied(error: unknown): boolean {
-    if (!error || typeof error !== 'object') return false;
-    const maybeCode = (error as { code?: number }).code;
-    return maybeCode === 1;
-  }
-
-  private async processLocation(
-    coords: CoordinatesPayload,
-    fonte: LocationSource,
-    forcePersist = false,
-  ) {
-    if (!this.started) return false;
-    if (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) return false;
-
-    const now = Date.now();
-    const usuarioId = await this.getUsuarioId();
-
-    if (!usuarioId) {
-      console.warn('[locationTracker] rastreio ignorado: usuário não encontrado');
-      return false;
-    }
-
-    const bateria = await this.getBatteryLevel();
-    const emMovimento = movedBeyond(this.lastPersistLat, this.lastPersistLng, coords.lat, coords.lng, 10);
-
-    const point: LiveTrackingPoint = {
-      usuario_id: usuarioId,
-      latitude: coords.lat,
-      longitude: coords.lng,
-      precisao: coords.accuracy,
-      fonte,
-      bateria_nivel: bateria,
-      em_movimento: emMovimento,
-      criado_em: new Date(now).toISOString(),
-      pending: true,
-    };
-
-    this.lastKnownCoords = coords;
-    this.lastKnownSource = fonte;
-
-    if (this.shouldEmitToUi(now, coords.lat, coords.lng, forcePersist)) {
-      this.emitLiveTrackingUpdate(point);
-    }
-
-    if (!this.shouldPersistToDb(now, coords.lat, coords.lng, forcePersist)) {
-      return true;
-    }
-
-    const persisted = await this.persistLocation({
-      usuario_id: usuarioId,
-      latitude: coords.lat,
-      longitude: coords.lng,
-      precisao: coords.accuracy,
-      fonte,
-      bateria_nivel: bateria,
-      em_movimento: emMovimento,
-      user_agent: this.isBrowser() ? navigator.userAgent : 'unknown',
-    });
-
-    if (!persisted) return false;
-
-    this.lastPersistAt = now;
-    this.lastPersistLat = coords.lat;
-    this.lastPersistLng = coords.lng;
-    this.emitLiveTrackingUpdate({ ...point, pending: false });
-
-    return true;
-  }
-
-  private async captureByIP(forcePersist = false, fonte: LocationSource = 'ip') {
-    if (!this.isBrowser() || !this.started) return false;
-
-    for (const provider of IP_PROVIDERS) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8_000);
-        const response = await fetch(provider.url, { signal: controller.signal });
-        clearTimeout(timeout);
-
-        if (!response.ok) continue;
-
-        const json = await response.json();
-        const coords = provider.extract(json);
-        const lat = Number(coords.lat);
-        const lng = Number(coords.lng);
-
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-
-        return this.processLocation({ lat, lng, accuracy: 5_000 }, fonte, forcePersist);
-      } catch {
-        continue;
-      }
-    }
-
-    return false;
-  }
-
-  private async handleGeolocationError(error: unknown, forcePersist: boolean) {
-    const now = Date.now();
-
-    if (this.isPermissionDenied(error) || now - this.lastGeolocationFallbackAt >= GEOLOCATION_FALLBACK_COOLDOWN_MS) {
-      this.lastGeolocationFallbackAt = now;
-      return this.captureByIP(forcePersist, 'ip');
-    }
-
-    return false;
-  }
-
-  private async captureGPSOnce(forcePersist = false) {
-    if (!this.started) return false;
-
-    if (!this.hasSecureGeolocation()) {
-      return this.captureByIP(forcePersist, 'ip');
-    }
-
-    try {
-      const coords = await new Promise<CoordinatesPayload>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            resolve({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-              accuracy: position.coords.accuracy ?? null,
-            });
-          },
-          (error) => reject(error),
-          {
-            enableHighAccuracy: true,
-            timeout: 12_000,
-            maximumAge: 1_000,
-          },
-        );
-      });
-
-      return this.processLocation(coords, 'gps', forcePersist);
-    } catch (error) {
-      return this.handleGeolocationError(error, forcePersist);
-    }
-  }
-
-  private async isPermissionDeniedByBrowser() {
-    if (!this.hasSecureGeolocation()) return true;
-
-    if (!('permissions' in navigator) || typeof navigator.permissions.query !== 'function') {
-      return false;
-    }
-
-    try {
-      const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-      return status.state === 'denied';
-    } catch {
-      return false;
-    }
-  }
-
-  private attachWatch() {
-    if (!this.started || this.watchId !== null || !this.hasSecureGeolocation()) return;
-
-    this.watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        void this.processLocation(
-          {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy ?? null,
-          },
-          'gps',
-          false,
-        );
-      },
-      (error) => {
-        void this.handleGeolocationError(error, false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15_000,
-        maximumAge: 5_000,
-      },
-    );
-  }
-
-  private detachWatch() {
-    if (!this.hasGeolocation() || this.watchId === null) return;
-    navigator.geolocation.clearWatch(this.watchId);
-    this.watchId = null;
-  }
-
-  private restartPersistLoop() {
-    if (this.persistIntervalId) {
-      clearInterval(this.persistIntervalId);
-      this.persistIntervalId = null;
-    }
-
-    if (!this.started) return;
-
-    this.persistIntervalId = setInterval(() => {
-      void this.flushTick();
-    }, getCaptureIntervalMs());
-  }
-
-  private async flushTick() {
-    if (!this.started) return;
-
-    if (this.lastKnownCoords) {
-      await this.processLocation(this.lastKnownCoords, this.lastKnownSource, true);
+// ── IndexedDB helpers ───────────────────────────────────────────────────────
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (!isBrowser() || !('indexedDB' in window)) {
+      reject(new Error('IndexedDB not available'));
       return;
     }
-
-    await this.captureGPSOnce(true);
-  }
-
-  private registerLifecycleListeners() {
-    if (!this.isBrowser()) return;
-
-    if (!this.visibilityHandler) {
-      this.visibilityHandler = () => {
-        if (!this.started) return;
-
-        if (document.visibilityState === 'visible') {
-          this.attachWatch();
-          void this.captureGPSOnce(true);
-          return;
-        }
-
-        this.detachWatch();
-      };
-
-      document.addEventListener('visibilitychange', this.visibilityHandler);
-    }
-
-    if (!this.focusHandler) {
-      this.focusHandler = () => {
-        if (!this.started) return;
-        this.attachWatch();
-        void this.captureGPSOnce(true);
-      };
-      window.addEventListener('focus', this.focusHandler);
-    }
-
-    if (!this.blurHandler) {
-      this.blurHandler = () => {
-        if (!this.started) return;
-        this.detachWatch();
-      };
-      window.addEventListener('blur', this.blurHandler);
-    }
-  }
-
-  private unregisterLifecycleListeners() {
-    if (!this.isBrowser()) return;
-
-    if (this.visibilityHandler) {
-      document.removeEventListener('visibilitychange', this.visibilityHandler);
-      this.visibilityHandler = null;
-    }
-
-    if (this.focusHandler) {
-      window.removeEventListener('focus', this.focusHandler);
-      this.focusHandler = null;
-    }
-
-    if (this.blurHandler) {
-      window.removeEventListener('blur', this.blurHandler);
-      this.blurHandler = null;
-    }
-  }
-
-  private registerBackgroundLocationListener() {
-    if (!this.isBrowser() || this.backgroundLocationHandler) return;
-
-    this.backgroundLocationHandler = (event: Event) => {
-      const detail = (event as CustomEvent).detail;
-      const lat = Number(detail?.latitude);
-      const lng = Number(detail?.longitude);
-
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-      void this.processLocation(
-        { lat, lng, accuracy: 5_000 },
-        detail?.fonte ?? 'ip_background',
-        true,
-      );
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        const store = db.createObjectStore(IDB_STORE, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('synced', 'synced', { unique: false });
+        store.createIndex('criado_em', 'criado_em', { unique: false });
+      }
     };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
 
-    window.addEventListener('background-location', this.backgroundLocationHandler);
+async function idbSave(point: LiveTrackingPoint): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).add(point);
+    await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+    db.close();
+  } catch (e) {
+    console.warn('[idb] save failed', e);
   }
+}
 
-  private unregisterBackgroundLocationListener() {
-    if (!this.isBrowser() || !this.backgroundLocationHandler) return;
-    window.removeEventListener('background-location', this.backgroundLocationHandler);
-    this.backgroundLocationHandler = null;
+async function idbGetUnsynced(): Promise<LiveTrackingPoint[]> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const idx = tx.objectStore(IDB_STORE).index('synced');
+    const req = idx.getAll(IDBKeyRange.only(false));
+    const result = await new Promise<LiveTrackingPoint[]>((res, rej) => {
+      req.onsuccess = () => res(req.result ?? []);
+      req.onerror = () => rej(req.error);
+    });
+    db.close();
+    return result;
+  } catch {
+    return [];
   }
+}
+
+async function idbMarkSynced(id: number): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    const store = tx.objectStore(IDB_STORE);
+    const getReq = store.get(id);
+    getReq.onsuccess = () => {
+      if (getReq.result) {
+        getReq.result.synced = true;
+        store.put(getReq.result);
+      }
+    };
+    await new Promise<void>((res) => { tx.oncomplete = () => res(); });
+    db.close();
+  } catch {}
+}
+
+export async function idbGetAll(limit = 200): Promise<LiveTrackingPoint[]> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const idx = tx.objectStore(IDB_STORE).index('criado_em');
+    const req = idx.openCursor(null, 'prev');
+    const results: LiveTrackingPoint[] = [];
+    await new Promise<void>((resolve) => {
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (cursor && results.length < limit) {
+          results.push(cursor.value);
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      };
+      req.onerror = () => resolve();
+    });
+    db.close();
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+// ── Reverse geocoding (Nominatim) ───────────────────────────────────────────
+const geocodeCache = new Map<string, string>();
+
+export async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  if (geocodeCache.has(key)) return geocodeCache.get(key)!;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5_000);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      { signal: controller.signal, headers: { 'Accept-Language': 'pt-BR' } },
+    );
+    clearTimeout(timeout);
+    if (!res.ok) return '';
+    const data = await res.json();
+    const addr = data.display_name || '';
+    geocodeCache.set(key, addr);
+    return addr;
+  } catch {
+    return '';
+  }
+}
+
+// ── Core tracker singleton ──────────────────────────────────────────────────
+class Tracker {
+  private running = false;
+  private watchId: number | null = null;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private cachedUserId: string | null = null;
+  private cachedUserExpiry = 0;
+  private lastLat: number | null = null;
+  private lastLng: number | null = null;
+  private lastPersistAt = 0;
+  private syncing = false;
 
   async start() {
-    if (!this.isBrowser() || this.started) return;
+    if (!isBrowser() || this.running) return;
+    this.running = true;
 
-    this.stop();
-    this.started = true;
-    this.resetRuntimeState();
+    this.attachWatch();
+    await this.captureOnce(true);
+    this.startLoop();
+    this.syncUnsynced();
+    this.listenLifecycle();
 
-    const cached = this.readCachedPoint();
-    if (cached) {
-      this.lastKnownCoords = {
-        lat: cached.latitude,
-        lng: cached.longitude,
-        accuracy: cached.precisao,
-      };
-      this.lastKnownSource = cached.fonte;
-      this.emitLiveTrackingUpdate(cached);
-    }
-
-    this.registerBackgroundLocationListener();
-    this.registerLifecycleListeners();
-
-    const denied = await this.isPermissionDeniedByBrowser();
-    if (!denied) {
-      this.attachWatch();
-    }
-
-    await this.captureGPSOnce(true);
-    this.restartPersistLoop();
-
-    console.info('[locationTracker] rastreio iniciado');
+    console.info('[tracker] started');
   }
 
   stop() {
-    this.started = false;
-
+    this.running = false;
     this.detachWatch();
+    if (this.intervalId) { clearInterval(this.intervalId); this.intervalId = null; }
+    console.info('[tracker] stopped');
+  }
 
-    if (this.persistIntervalId) {
-      clearInterval(this.persistIntervalId);
-      this.persistIntervalId = null;
-    }
+  restartLoop() {
+    if (this.intervalId) { clearInterval(this.intervalId); this.intervalId = null; }
+    if (this.running) this.startLoop();
+  }
 
-    this.unregisterBackgroundLocationListener();
-    this.unregisterLifecycleListeners();
-    this.resetCachedUsuarioId();
-    this.resetRuntimeState();
-
-    if (this.isBrowser()) {
-      console.info('[locationTracker] rastreio parado');
+  // ── GPS watch ──
+  private attachWatch() {
+    if (this.watchId !== null || !isBrowser() || !('geolocation' in navigator) || !window.isSecureContext) return;
+    try {
+      this.watchId = navigator.geolocation.watchPosition(
+        (pos) => void this.handleCoords(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, 'gps'),
+        (err) => { if (err.code === 1) this.detachWatch(); void this.captureByIP(); },
+        { enableHighAccuracy: true, timeout: 15_000, maximumAge: 5_000 },
+      );
+    } catch {
+      void this.captureByIP();
     }
   }
 
-  async onCaptureIntervalChanged() {
-    this.restartPersistLoop();
+  private detachWatch() {
+    if (this.watchId !== null && isBrowser() && 'geolocation' in navigator) {
+      navigator.geolocation.clearWatch(this.watchId);
+      this.watchId = null;
+    }
+  }
+
+  // ── Capture once (GPS → fallback IP) ──
+  private async captureOnce(force = false) {
+    if (!this.running) return;
+    if (!isBrowser() || !('geolocation' in navigator) || !window.isSecureContext) {
+      return this.captureByIP(force);
+    }
+    try {
+      const pos = await new Promise<GeolocationPosition>((ok, fail) =>
+        navigator.geolocation.getCurrentPosition(ok, fail, { enableHighAccuracy: true, timeout: 12_000, maximumAge: 1_000 }),
+      );
+      await this.handleCoords(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, 'gps', force);
+    } catch {
+      await this.captureByIP(force);
+    }
+  }
+
+  // ── IP fallback ──
+  private async captureByIP(force = false) {
+    if (!this.running) return;
+    for (const p of IP_PROVIDERS) {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 8_000);
+        const res = await fetch(p.url, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!res.ok) continue;
+        const json = await res.json();
+        const c = p.extract(json);
+        if (Number.isFinite(c.lat) && Number.isFinite(c.lng)) {
+          await this.handleCoords(c.lat, c.lng, 5000, 'ip', force);
+          return;
+        }
+      } catch { continue; }
+    }
+  }
+
+  // ── Process coordinates ──
+  private async handleCoords(lat: number, lng: number, accuracy: number | null, fonte: string, force = false) {
+    if (!this.running || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const now = Date.now();
+    const moved = this.lastLat === null || distM(this.lastLat, this.lastLng!, lat, lng) >= 20;
+    const elapsed = now - this.lastPersistAt >= 30_000;
+
+    if (!force && !moved && !elapsed) return;
+
+    const userId = await this.getUserId();
+    if (!userId) return;
+
+    const battery = await this.getBattery();
+    const emMovimento = this.lastLat !== null && distM(this.lastLat, this.lastLng!, lat, lng) >= 10;
+
+    const point: LiveTrackingPoint = {
+      usuario_id: userId,
+      latitude: lat,
+      longitude: lng,
+      precisao: accuracy,
+      fonte,
+      bateria_nivel: battery,
+      em_movimento: emMovimento,
+      criado_em: new Date(now).toISOString(),
+      synced: false,
+    };
+
+    // Save to IndexedDB first (offline-first)
+    await idbSave(point);
+
+    this.lastLat = lat;
+    this.lastLng = lng;
+    this.lastPersistAt = now;
+
+    // Emit to UI
+    window.dispatchEvent(new CustomEvent(LIVE_EVENT, { detail: point }));
+
+    // Try to sync to Supabase
+    await this.persistToSupabase(point);
+  }
+
+  private async persistToSupabase(point: LiveTrackingPoint) {
+    if (!point.usuario_id) return;
+    try {
+      const { error } = await supabase.from('localizacoes_usuarios').insert({
+        usuario_id: point.usuario_id,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        precisao: point.precisao,
+        fonte: point.fonte,
+        bateria_nivel: point.bateria_nivel,
+        em_movimento: point.em_movimento,
+        user_agent: navigator.userAgent,
+      });
+      if (error) console.warn('[tracker] persist error', error.message);
+    } catch (e) {
+      console.warn('[tracker] persist failed (offline?)', e);
+    }
+  }
+
+  // ── Sync unsynced from IndexedDB ──
+  async syncUnsynced() {
+    if (this.syncing || !navigator.onLine) return;
+    this.syncing = true;
+    try {
+      const unsynced = await idbGetUnsynced();
+      for (const p of unsynced.slice(0, 50)) {
+        if (!p.usuario_id) continue;
+        const { error } = await supabase.from('localizacoes_usuarios').insert({
+          usuario_id: p.usuario_id,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          precisao: p.precisao,
+          fonte: p.fonte,
+          bateria_nivel: p.bateria_nivel,
+          em_movimento: p.em_movimento,
+          user_agent: 'sync',
+        });
+        if (!error && (p as any).id) {
+          await idbMarkSynced((p as any).id);
+        }
+      }
+    } catch {} finally {
+      this.syncing = false;
+    }
+  }
+
+  // ── Periodic loop ──
+  private startLoop() {
+    this.intervalId = setInterval(() => void this.captureOnce(true), getCaptureIntervalMs());
+  }
+
+  // ── Lifecycle ──
+  private listenLifecycle() {
+    if (!isBrowser()) return;
+    document.addEventListener('visibilitychange', () => {
+      if (!this.running) return;
+      if (document.visibilityState === 'visible') {
+        this.attachWatch();
+        void this.captureOnce(true);
+        void this.syncUnsynced();
+      }
+    });
+    window.addEventListener('online', () => void this.syncUnsynced());
+  }
+
+  // ── User ID resolution ──
+  private async getUserId(): Promise<string | null> {
+    if (this.cachedUserId && Date.now() < this.cachedUserExpiry) return this.cachedUserId;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase.from('hierarquia_usuarios')
+        .select('id').eq('auth_user_id', user.id).neq('ativo', false).limit(1);
+      const id = data?.[0]?.id ?? null;
+      if (id) { this.cachedUserId = id; this.cachedUserExpiry = Date.now() + 5 * 60_000; }
+      return id;
+    } catch { return null; }
+  }
+
+  private async getBattery(): Promise<number | null> {
+    try {
+      const b = await (navigator as any).getBattery?.();
+      return b ? Math.round(b.level * 100) : null;
+    } catch { return null; }
   }
 }
 
-const tracker = new LocationTrackerSingleton();
+// ── Singleton & exports ─────────────────────────────────────────────────────
+const tracker = new Tracker();
 
-export function getLiveTrackingEventName() {
-  return LIVE_TRACKING_EVENT;
-}
+export function getLiveTrackingEventName() { return LIVE_EVENT; }
 
 export function getCaptureIntervalMinutes(): CaptureIntervalMinutes {
-  const stored = Number(safeStorageGet(CAPTURE_INTERVAL_STORAGE_KEY));
-  return isValidCaptureInterval(stored) ? stored : DEFAULT_CAPTURE_INTERVAL;
+  const v = Number(safeGet(STORAGE_KEY_INTERVAL));
+  return CAPTURE_INTERVALS.includes(v as CaptureIntervalMinutes) ? (v as CaptureIntervalMinutes) : DEFAULT_INTERVAL;
 }
 
 export function getCaptureIntervalMs() {
   return getCaptureIntervalMinutes() * 60_000;
 }
 
-async function updatePeriodicSyncInterval() {
-  if (!isBrowserEnvironment()) return;
-  if (!('serviceWorker' in navigator)) return;
-
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    if ('periodicSync' in registration) {
-      await (registration as any).periodicSync.register('location-sync', {
-        minInterval: getCaptureIntervalMs(),
-      });
-    }
-  } catch {
-    // Browser may block this API.
-  }
-}
-
 export async function setCaptureIntervalMinutes(minutes: CaptureIntervalMinutes) {
-  if (!isValidCaptureInterval(minutes)) return;
-
-  safeStorageSet(CAPTURE_INTERVAL_STORAGE_KEY, String(minutes));
-  await tracker.onCaptureIntervalChanged();
-  await updatePeriodicSyncInterval();
+  if (!CAPTURE_INTERVALS.includes(minutes)) return;
+  safeSet(STORAGE_KEY_INTERVAL, String(minutes));
+  tracker.restartLoop();
 }
 
 export function registerBackgroundSync() {
-  if (!isBrowserEnvironment()) return;
-  if (!('serviceWorker' in navigator)) return;
-
-  navigator.serviceWorker.ready
-    .then((registration) => {
-      return Promise.allSettled([
-        typeof (registration as any).sync?.register === 'function'
-          ? (registration as any).sync.register('sync-location')
-          : Promise.resolve(),
-        typeof (registration as any).periodicSync?.register === 'function'
-          ? (registration as any).periodicSync.register('location-sync', {
-              minInterval: getCaptureIntervalMs(),
-            })
-          : Promise.resolve(),
-      ]);
-    })
-    .catch(() => {
-      // Ignore unsupported service worker sync APIs.
-    });
+  if (!isBrowser() || !('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.ready.then((reg) => {
+    if ('sync' in reg) (reg as any).sync.register('sync-location').catch(() => {});
+    if ('periodicSync' in reg) (reg as any).periodicSync.register('location-sync', { minInterval: getCaptureIntervalMs() }).catch(() => {});
+  }).catch(() => {});
 }
 
-export function startLocationTracking() {
-  void tracker.start();
-}
-
-export function stopLocationTracking() {
-  tracker.stop();
-}
+export function startLocationTracking() { void tracker.start(); }
+export function stopLocationTracking() { tracker.stop(); }

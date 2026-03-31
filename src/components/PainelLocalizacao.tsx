@@ -1,31 +1,19 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   CAPTURE_INTERVALS,
   getCaptureIntervalMinutes,
   getLiveTrackingEventName,
   setCaptureIntervalMinutes,
+  idbGetAll,
+  reverseGeocode,
   type CaptureIntervalMinutes,
   type LiveTrackingPoint,
 } from '@/services/locationTracker';
 import {
-  MapPin,
-  Clock,
-  Battery,
-  Wifi,
-  ChevronDown,
-  ChevronUp,
-  RefreshCw,
-  Loader2,
-  Navigation,
-  Map,
-  List,
-  Route,
-  AlertTriangle,
+  MapPin, Clock, Battery, Wifi, ChevronDown, ChevronUp,
+  RefreshCw, Loader2, Navigation, ExternalLink, AlertTriangle,
 } from 'lucide-react';
-
-// Lazy load the map to isolate leaflet from crashing the app
-const TrackingMap = React.lazy(() => import('./TrackingMap'));
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
@@ -39,7 +27,7 @@ interface LocationRecord {
   bateria_nivel: number | null;
   em_movimento: boolean;
   criado_em: string;
-  pending?: boolean;
+  endereco?: string | null;
 }
 
 interface UserLocationGroup {
@@ -53,7 +41,7 @@ interface UserLocationGroup {
 
 type DateFilter = '24h' | '48h' | '7d' | '30d' | 'all';
 
-const DATE_FILTER_OPTIONS: { id: DateFilter; label: string }[] = [
+const DATE_FILTERS: { id: DateFilter; label: string }[] = [
   { id: '24h', label: '24h' },
   { id: '48h', label: '48h' },
   { id: '7d', label: '7 dias' },
@@ -62,240 +50,198 @@ const DATE_FILTER_OPTIONS: { id: DateFilter; label: string }[] = [
 ];
 
 function getDateFilterISO(filter: DateFilter): string | null {
-  const now = new Date();
-  switch (filter) {
-    case '24h': return new Date(now.getTime() - 24 * 60 * 60_000).toISOString();
-    case '48h': return new Date(now.getTime() - 48 * 60 * 60_000).toISOString();
-    case '7d': return new Date(now.getTime() - 7 * 24 * 60 * 60_000).toISOString();
-    case '30d': return new Date(now.getTime() - 30 * 24 * 60 * 60_000).toISOString();
-    default: return null;
-  }
+  const now = Date.now();
+  const ms: Record<string, number> = { '24h': 86400000, '48h': 172800000, '7d': 604800000, '30d': 2592000000 };
+  return ms[filter] ? new Date(now - ms[filter]).toISOString() : null;
 }
 
-function isValidCoordinate(lat: number, lng: number) {
+function isValid(lat: number, lng: number) {
   return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 }
 
-function normalizeLocationRecord(raw: unknown): LocationRecord | null {
-  if (!raw || typeof raw !== 'object') return null;
-
-  const source = raw as Record<string, unknown>;
-  const latitude = Number(source.latitude);
-  const longitude = Number(source.longitude);
-  if (!isValidCoordinate(latitude, longitude)) return null;
-
-  const usuarioId = typeof source.usuario_id === 'string' ? source.usuario_id : '';
-  if (!usuarioId) return null;
-
-  const createdAtValue = typeof source.criado_em === 'string' ? source.criado_em : new Date().toISOString();
-  const createdAt = Number.isNaN(new Date(createdAtValue).getTime()) ? new Date().toISOString() : createdAtValue;
-
+function normalize(raw: any): LocationRecord | null {
+  const lat = Number(raw?.latitude);
+  const lng = Number(raw?.longitude);
+  if (!isValid(lat, lng)) return null;
+  const uid = raw?.usuario_id;
+  if (!uid) return null;
+  const criado = raw?.criado_em || new Date().toISOString();
   return {
-    id: typeof source.id === 'string' ? source.id : `live-${usuarioId}-${createdAt}`,
-    usuario_id: usuarioId,
-    latitude,
-    longitude,
-    precisao: source.precisao == null ? null : Number(source.precisao),
-    fonte: source.fonte == null ? null : String(source.fonte),
-    bateria_nivel: source.bateria_nivel == null ? null : Number(source.bateria_nivel),
-    em_movimento: Boolean(source.em_movimento),
-    criado_em: createdAt,
-    pending: Boolean(source.pending),
+    id: raw?.id || `loc-${uid}-${criado}`,
+    usuario_id: uid,
+    latitude: lat,
+    longitude: lng,
+    precisao: raw?.precisao != null ? Number(raw.precisao) : null,
+    fonte: raw?.fonte ?? null,
+    bateria_nivel: raw?.bateria_nivel != null ? Number(raw.bateria_nivel) : null,
+    em_movimento: Boolean(raw?.em_movimento),
+    criado_em: criado,
+    endereco: raw?.endereco ?? null,
   };
 }
 
-function buildLiveLocationRecord(detail: unknown): LocationRecord | null {
-  if (!detail || typeof detail !== 'object') return null;
-  const point = detail as Partial<LiveTrackingPoint>;
-  if (!point.usuario_id) return null;
-  return normalizeLocationRecord({ ...point, id: `live-${point.usuario_id}` });
+function formatDateTime(iso: string) {
+  try {
+    return new Date(iso).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+      timeZone: 'America/Sao_Paulo',
+    });
+  } catch { return iso; }
 }
 
-// Error boundary to catch any leaflet/map crash
-class MapErrorBoundary extends React.Component<
-  { children: React.ReactNode; fallback: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode; fallback: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
+function formatRelative(iso: string) {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (diff < 1) return 'Agora';
+  if (diff < 60) return `${diff}min`;
+  if (diff < 1440) return `${Math.floor(diff / 60)}h`;
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error) {
-    console.error('[TrackingMap] Erro ao renderizar mapa:', error.message);
-  }
-
-  render() {
-    if (this.state.hasError) return this.props.fallback;
-    return this.props.children;
-  }
+function mapsLink(lat: number, lng: number) {
+  return `https://www.google.com/maps?q=${lat},${lng}`;
 }
 
 export default function PainelLocalizacao() {
   const [locations, setLocations] = useState<LocationRecord[]>([]);
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
-  const [view, setView] = useState<'map' | 'list'>('list');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [captureInterval, setCaptureInterval] = useState<CaptureIntervalMinutes>(() => getCaptureIntervalMinutes());
+  const [captureInterval, setCaptureIntervalState] = useState<CaptureIntervalMinutes>(() => getCaptureIntervalMinutes());
   const [dateFilter, setDateFilter] = useState<DateFilter>('24h');
+  const [addresses, setAddresses] = useState<Record<string, string>>({});
   const hasFetched = useRef(false);
 
+  // Fetch from Supabase + merge IndexedDB
   const fetchData = useCallback(async (filter?: DateFilter) => {
     setLoading(true);
-    setErrorMessage(null);
-
+    setError(null);
     try {
       const activeFilter = filter ?? dateFilter;
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLocations([]); setUsuarios([]); return; }
 
-      const { data: currentUser } = await supabase
-        .from('hierarquia_usuarios')
-        .select('id, tipo')
-        .eq('auth_user_id', user.id)
-        .neq('ativo', false)
-        .maybeSingle();
-
+      const { data: currentUser } = await supabase.from('hierarquia_usuarios')
+        .select('id, tipo').eq('auth_user_id', user.id).neq('ativo', false).maybeSingle();
       if (!currentUser) { setLocations([]); setUsuarios([]); return; }
 
       const isAdmin = currentUser.tipo === 'super_admin' || currentUser.tipo === 'coordenador';
 
-      let locationQuery = supabase
-        .from('localizacoes_usuarios')
+      let locQuery = supabase.from('localizacoes_usuarios')
         .select('id, usuario_id, latitude, longitude, precisao, fonte, bateria_nivel, em_movimento, criado_em')
-        .order('criado_em', { ascending: false })
-        .limit(300);
+        .order('criado_em', { ascending: false }).limit(300);
 
       const since = getDateFilterISO(activeFilter);
-      if (since) locationQuery = locationQuery.gte('criado_em', since);
-      if (!isAdmin) locationQuery = locationQuery.eq('usuario_id', currentUser.id);
+      if (since) locQuery = locQuery.gte('criado_em', since);
+      if (!isAdmin) locQuery = locQuery.eq('usuario_id', currentUser.id);
 
       const userQuery = supabase.from('hierarquia_usuarios').select('id, nome, tipo').neq('ativo', false);
       if (!isAdmin) userQuery.eq('id', currentUser.id);
 
-      const [locRes, usrRes] = await Promise.all([locationQuery, userQuery]);
+      const [locRes, usrRes] = await Promise.all([locQuery, userQuery]);
 
       if (locRes.error) throw locRes.error;
       if (usrRes.error) throw usrRes.error;
 
-      const normalized = (locRes.data || [])
-        .map((item) => normalizeLocationRecord(item))
-        .filter((item): item is LocationRecord => item !== null)
-        .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime())
-        .slice(0, 300);
+      // Also get local IndexedDB records
+      let idbRecords: LocationRecord[] = [];
+      try {
+        const raw = await idbGetAll(200);
+        idbRecords = raw.map(r => normalize(r)).filter((r): r is LocationRecord => r !== null);
+      } catch {}
 
-      setLocations(normalized);
+      // Merge: Supabase records + IDB records (dedup by timestamp proximity)
+      const supaRecords = (locRes.data || []).map(normalize).filter((r): r is LocationRecord => r !== null);
+      const merged = [...supaRecords];
+      for (const idb of idbRecords) {
+        const isDup = merged.some(m =>
+          m.usuario_id === idb.usuario_id &&
+          Math.abs(new Date(m.criado_em).getTime() - new Date(idb.criado_em).getTime()) < 30_000
+        );
+        if (!isDup) merged.push(idb);
+      }
+
+      merged.sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
+      setLocations(merged.slice(0, 300));
       setUsuarios(usrRes.data || []);
-    } catch (error) {
-      console.error('[PainelLocalizacao] erro ao carregar dados', error);
-      setErrorMessage('Não foi possível carregar o rastreamento agora.');
+    } catch (e: any) {
+      console.error('[Painel] fetch error', e);
+      setError('Não foi possível carregar os dados.');
+      // Fallback: show IndexedDB data only
+      try {
+        const raw = await idbGetAll(200);
+        const records = raw.map(r => normalize(r)).filter((r): r is LocationRecord => r !== null);
+        setLocations(records);
+      } catch {}
     } finally {
       setLoading(false);
     }
   }, [dateFilter]);
 
   useEffect(() => {
-    if (!hasFetched.current) {
-      hasFetched.current = true;
-      fetchData();
-    }
+    if (!hasFetched.current) { hasFetched.current = true; fetchData(); }
   }, [fetchData]);
 
+  // Live tracking updates
   useEffect(() => {
-    const eventName = getLiveTrackingEventName();
-    const handleLiveTracking = (event: Event) => {
-      if (!(event instanceof CustomEvent)) return;
-      const point = buildLiveLocationRecord(event.detail);
-      if (!point) return;
-      setLocations((prev) => {
-        const withoutPending = prev.filter((item) => item.usuario_id !== point.usuario_id || !item.pending);
-        return [point, ...withoutPending]
-          .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime())
-          .slice(0, 300);
+    const handler = (e: Event) => {
+      if (!(e instanceof CustomEvent)) return;
+      const rec = normalize(e.detail);
+      if (!rec) return;
+      setLocations(prev => {
+        const filtered = prev.filter(p => !(p.usuario_id === rec.usuario_id && p.id.startsWith('loc-')));
+        return [rec, ...filtered].sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()).slice(0, 300);
       });
     };
-    window.addEventListener(eventName, handleLiveTracking as EventListener);
-    return () => window.removeEventListener(eventName, handleLiveTracking as EventListener);
+    window.addEventListener(getLiveTrackingEventName(), handler as EventListener);
+    return () => window.removeEventListener(getLiveTrackingEventName(), handler as EventListener);
   }, []);
 
-  const handleDateFilterChange = (f: DateFilter) => {
-    setDateFilter(f);
-    fetchData(f);
-  };
+  // Reverse geocode visible locations (lazy, max 5 at a time)
+  useEffect(() => {
+    const toGeocode = locations.filter(l => !addresses[`${l.latitude.toFixed(4)},${l.longitude.toFixed(4)}`]).slice(0, 5);
+    if (!toGeocode.length) return;
+    let cancelled = false;
+    (async () => {
+      const newAddrs: Record<string, string> = {};
+      for (const loc of toGeocode) {
+        if (cancelled) break;
+        const key = `${loc.latitude.toFixed(4)},${loc.longitude.toFixed(4)}`;
+        const addr = await reverseGeocode(loc.latitude, loc.longitude);
+        if (addr) newAddrs[key] = addr;
+        await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
+      }
+      if (!cancelled) setAddresses(prev => ({ ...prev, ...newAddrs }));
+    })();
+    return () => { cancelled = true; };
+  }, [locations, addresses]);
 
-  const handleCaptureIntervalChange = async (minutes: CaptureIntervalMinutes) => {
-    setCaptureInterval(minutes);
-    await setCaptureIntervalMinutes(minutes);
-  };
+  const handleDateFilter = (f: DateFilter) => { setDateFilter(f); fetchData(f); };
+  const handleInterval = async (m: CaptureIntervalMinutes) => { setCaptureIntervalState(m); await setCaptureIntervalMinutes(m); };
 
   const userGroups = useMemo(() => {
     const map: Record<string, LocationRecord[]> = {};
-    locations.forEach(loc => {
-      if (!map[loc.usuario_id]) map[loc.usuario_id] = [];
-      map[loc.usuario_id].push(loc);
-    });
-
+    locations.forEach(l => { if (!map[l.usuario_id]) map[l.usuario_id] = []; map[l.usuario_id].push(l); });
     return Object.entries(map).map(([uid, locs], i) => {
       const user = usuarios.find(u => u.id === uid);
-      const sorted = [...locs].sort((a, b) => new Date(a.criado_em).getTime() - new Date(b.criado_em).getTime());
+      const sorted = [...locs].sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
       return {
         usuario_id: uid,
-        nome: user?.nome || 'Desconhecido',
+        nome: user?.nome || uid.slice(0, 8),
         tipo: user?.tipo || '—',
         locations: sorted,
-        lastLocation: sorted[sorted.length - 1],
+        lastLocation: sorted[0],
         color: COLORS[i % COLORS.length],
       } as UserLocationGroup;
     }).sort((a, b) => new Date(b.lastLocation.criado_em).getTime() - new Date(a.lastLocation.criado_em).getTime());
   }, [locations, usuarios]);
 
-  const displayGroups = useMemo(() => {
-    const filtered = selectedUserId ? userGroups.filter(g => g.usuario_id === selectedUserId) : userGroups;
-    return filtered.flatMap(g => {
-      const valid = g.locations
-        .filter((l) => isValidCoordinate(Number(l.latitude), Number(l.longitude)))
-        .map((l) => ({ ...l, latitude: Number(l.latitude), longitude: Number(l.longitude) }));
-      if (!valid.length) return [];
-      const sampled = valid.length <= 150 ? valid : valid.filter((_, i) => {
-        const step = Math.ceil(valid.length / 150);
-        return i === 0 || i === valid.length - 1 || i % step === 0;
-      });
-      return [{ ...g, locations: sampled, lastLocation: valid[valid.length - 1] }];
-    });
-  }, [userGroups, selectedUserId]);
-
-  const formatTime = (iso: string) => {
-    try {
-      const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-      if (diff < 1) return 'Agora';
-      if (diff < 60) return `${diff}min`;
-      if (diff < 1440) return `${Math.floor(diff / 60)}h`;
-      return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    } catch {
-      return '—';
-    }
-  };
-
+  const displayGroups = selectedUserId ? userGroups.filter(g => g.usuario_id === selectedUserId) : userGroups;
   const fonteIcon = (f: string | null) => f === 'gps' ? <Navigation size={10} className="text-primary" /> : <Wifi size={10} className="text-muted-foreground" />;
-  const fonteLabel = (f: string | null) => f === 'gps' ? 'GPS' : f === 'ip' ? 'IP' : f === 'ip_background' ? 'IP(bg)' : f || '—';
-  const openMaps = (lat: number, lng: number) => window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
-
-  const mapFallback = (
-    <div className="rounded-2xl border border-border bg-muted/20 flex items-center justify-center" style={{ height: 400 }}>
-      <div className="text-center">
-        <AlertTriangle size={32} className="mx-auto text-muted-foreground mb-2" />
-        <p className="text-sm text-muted-foreground">Mapa indisponível</p>
-        <button onClick={() => setView('list')} className="text-xs text-primary underline mt-1">Ver lista</button>
-      </div>
-    </div>
-  );
+  const fonteLabel = (f: string | null) => f === 'gps' ? 'GPS' : f === 'ip' ? 'IP' : f || '—';
+  const getAddr = (lat: number, lng: number) => addresses[`${lat.toFixed(4)},${lng.toFixed(4)}`] || null;
 
   return (
     <div className="space-y-3 pb-24">
@@ -307,16 +253,10 @@ export default function PainelLocalizacao() {
             {loading ? 'Carregando...' : `${userGroups.length} usuários · ${locations.length} pontos`}
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => setView(view === 'map' ? 'list' : 'map')}
-            className="p-2 rounded-xl bg-muted hover:bg-muted/80 active:scale-95 transition-all">
-            {view === 'map' ? <List size={16} className="text-foreground" /> : <Map size={16} className="text-foreground" />}
-          </button>
-          <button onClick={() => fetchData()} disabled={loading}
-            className="p-2 rounded-xl bg-muted hover:bg-muted/80 active:scale-95 transition-all">
-            <RefreshCw size={16} className={`text-foreground ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
+        <button onClick={() => fetchData()} disabled={loading}
+          className="p-2 rounded-xl bg-muted hover:bg-muted/80 active:scale-95 transition-all">
+          <RefreshCw size={16} className={`text-foreground ${loading ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {/* Capture interval */}
@@ -327,7 +267,7 @@ export default function PainelLocalizacao() {
         </div>
         <div className="flex flex-wrap gap-1.5">
           {CAPTURE_INTERVALS.map(m => (
-            <button key={m} onClick={() => handleCaptureIntervalChange(m)}
+            <button key={m} onClick={() => handleInterval(m)}
               className={`rounded-full border px-3 py-1 text-[10px] font-semibold transition-all active:scale-95 ${
                 captureInterval === m ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground'
               }`}>
@@ -339,8 +279,8 @@ export default function PainelLocalizacao() {
 
       {/* Date filter */}
       <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-        {DATE_FILTER_OPTIONS.map(opt => (
-          <button key={opt.id} onClick={() => handleDateFilterChange(opt.id)}
+        {DATE_FILTERS.map(opt => (
+          <button key={opt.id} onClick={() => handleDateFilter(opt.id)}
             className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border font-semibold transition-all active:scale-95 ${
               dateFilter === opt.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'
             }`}>
@@ -350,14 +290,12 @@ export default function PainelLocalizacao() {
       </div>
 
       {/* User filter chips */}
-      {userGroups.length > 0 && (
+      {userGroups.length > 1 && (
         <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
           <button onClick={() => setSelectedUserId(null)}
             className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border transition-all active:scale-95 ${
               !selectedUserId ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'
-            }`}>
-            Todos
-          </button>
+            }`}>Todos</button>
           {userGroups.map(g => (
             <button key={g.usuario_id} onClick={() => setSelectedUserId(selectedUserId === g.usuario_id ? null : g.usuario_id)}
               className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border transition-all active:scale-95 flex items-center gap-1 ${
@@ -370,42 +308,35 @@ export default function PainelLocalizacao() {
         </div>
       )}
 
-      {errorMessage && (
+      {error && (
         <div className="section-card border-destructive/30 bg-destructive/5">
           <div className="flex items-start gap-2">
             <AlertTriangle size={14} className="text-destructive mt-0.5" />
-            <p className="text-xs text-foreground">{errorMessage}</p>
+            <p className="text-xs text-foreground">{error}</p>
           </div>
         </div>
       )}
 
+      {/* Content */}
       {loading && locations.length === 0 ? (
         <div className="flex justify-center py-8">
           <Loader2 size={24} className="animate-spin text-primary" />
         </div>
-      ) : userGroups.length === 0 && !loading ? (
+      ) : displayGroups.length === 0 && !loading ? (
         <div className="section-card text-center py-8">
           <MapPin size={32} className="mx-auto text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground">Nenhuma localização registrada</p>
         </div>
-      ) : view === 'map' ? (
-        <MapErrorBoundary fallback={mapFallback}>
-          <Suspense fallback={
-            <div className="flex justify-center py-8">
-              <Loader2 size={24} className="animate-spin text-primary" />
-            </div>
-          }>
-            <TrackingMap groups={displayGroups} loading={loading} />
-          </Suspense>
-        </MapErrorBoundary>
       ) : (
         <div className="space-y-2">
           {displayGroups.map(group => {
             const isExpanded = expandedUser === group.usuario_id;
             const last = group.lastLocation;
-            const sortedDesc = [...group.locations].reverse();
+            const lastAddr = getAddr(last.latitude, last.longitude);
+
             return (
               <div key={group.usuario_id} className="section-card !p-0 overflow-hidden">
+                {/* User header */}
                 <button onClick={() => setExpandedUser(isExpanded ? null : group.usuario_id)}
                   className="w-full flex items-center gap-3 p-3 text-left active:bg-muted/50 transition-all">
                   <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: group.color + '20' }}>
@@ -418,7 +349,7 @@ export default function PainelLocalizacao() {
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <Clock size={10} className="text-muted-foreground" />
-                      <span className="text-[10px] text-muted-foreground">{formatTime(last.criado_em)}</span>
+                      <span className="text-[10px] text-muted-foreground">{formatRelative(last.criado_em)}</span>
                       {fonteIcon(last.fonte)}
                       {last.bateria_nivel !== null && (
                         <>
@@ -427,35 +358,51 @@ export default function PainelLocalizacao() {
                         </>
                       )}
                     </div>
+                    {lastAddr && (
+                      <p className="text-[9px] text-muted-foreground mt-0.5 truncate">{lastAddr}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={(e) => { e.stopPropagation(); setSelectedUserId(group.usuario_id); setView('map'); }}
-                      className="p-1.5 rounded-lg active:scale-95" style={{ background: group.color + '15', color: group.color }}>
-                      <Route size={14} />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); openMaps(last.latitude, last.longitude); }}
+                    <a href={mapsLink(last.latitude, last.longitude)} target="_blank" rel="noreferrer"
+                      onClick={e => e.stopPropagation()}
                       className="p-1.5 rounded-lg bg-primary/10 text-primary active:scale-95">
                       <MapPin size={14} />
-                    </button>
+                    </a>
                     {isExpanded ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
                   </div>
                 </button>
+
+                {/* Expanded location list */}
                 {isExpanded && (
-                  <div className="border-t border-border px-3 pb-3 pt-2 space-y-1.5 max-h-[300px] overflow-y-auto">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                  <div className="border-t border-border px-3 pb-3 pt-2 space-y-1 max-h-[400px] overflow-y-auto">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-1">
                       Histórico ({group.locations.length} pontos)
                     </p>
-                    {sortedDesc.slice(0, 30).map(loc => (
-                      <div key={loc.id} className="flex items-center gap-2 py-1.5 border-b border-border/50 last:border-0">
-                        {fonteIcon(loc.fonte)}
-                        <span className="text-[10px] text-muted-foreground w-12 shrink-0">{fonteLabel(loc.fonte)}</span>
-                        <button onClick={() => openMaps(loc.latitude, loc.longitude)} className="text-[10px] text-primary underline truncate">
-                          {loc.latitude.toFixed(5)}, {loc.longitude.toFixed(5)}
-                        </button>
-                        {loc.precisao && <span className="text-[9px] text-muted-foreground">±{Math.round(loc.precisao)}m</span>}
-                        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">{formatTime(loc.criado_em)}</span>
-                      </div>
-                    ))}
+                    {group.locations.slice(0, 50).map(loc => {
+                      const addr = getAddr(loc.latitude, loc.longitude);
+                      return (
+                        <div key={loc.id} className="py-2 border-b border-border/50 last:border-0">
+                          <div className="flex items-center gap-2">
+                            {fonteIcon(loc.fonte)}
+                            <span className="text-[10px] text-muted-foreground font-medium">{fonteLabel(loc.fonte)}</span>
+                            <span className="text-[10px] text-foreground font-mono">
+                              {loc.latitude.toFixed(5)}, {loc.longitude.toFixed(5)}
+                            </span>
+                            {loc.precisao && <span className="text-[9px] text-muted-foreground">±{Math.round(loc.precisao)}m</span>}
+                            <span className="text-[10px] text-muted-foreground ml-auto shrink-0">{formatDateTime(loc.criado_em)}</span>
+                          </div>
+                          {addr && (
+                            <p className="text-[9px] text-muted-foreground mt-0.5 pl-4 truncate">{addr}</p>
+                          )}
+                          <div className="mt-1 pl-4">
+                            <a href={mapsLink(loc.latitude, loc.longitude)} target="_blank" rel="noreferrer"
+                              className="text-[10px] text-primary inline-flex items-center gap-1 hover:underline">
+                              <ExternalLink size={9} /> Abrir no Google Maps
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
