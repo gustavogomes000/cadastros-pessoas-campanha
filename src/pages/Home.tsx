@@ -36,6 +36,7 @@ export default function Home() {
     if (activeTab === 'eleitores') return isAdmin ? 'Todos os Eleitores' : 'Meus Eleitores';
     if (activeTab === 'cadastros') return isAdmin ? 'Todos os Cadastros' : 'Meus Cadastros';
     if (activeTab === 'rede') return 'Rede por Suplente';
+    if (activeTab === 'rastreamento') return 'Rastreamento';
     if (activeTab === 'perfil') return 'Perfil';
     return '';
   };
