@@ -449,9 +449,11 @@ export default function TabEleitores({ refreshKey, onSaved, viewOnly }: Props) {
   // LIST VIEW
   return (
     <div className="space-y-3 pb-24">
-      <button onClick={() => setMode('form')} className="w-full h-12 gradient-primary text-white font-semibold rounded-xl active:scale-[0.97] transition-all">
-        + Cadastrar Eleitor
-      </button>
+      {!viewOnly && (
+        <button onClick={() => setMode('form')} className="w-full h-12 gradient-primary text-white font-semibold rounded-xl active:scale-[0.97] transition-all">
+          + Cadastrar Eleitor
+        </button>
+      )}
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Buscar eleitor..." className="w-full h-11 pl-9 pr-3 bg-card border border-border rounded-xl text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30" />
