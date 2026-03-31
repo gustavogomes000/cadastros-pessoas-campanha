@@ -45,6 +45,11 @@ export default function BottomNav({ active, onChange }: Props) {
       tabs.push({ id: 'rede', icon: Network, label: 'Rede' });
     }
 
+    // Super admin sees location tracking
+    if (tipoUsuario === 'super_admin') {
+      tabs.push({ id: 'rastreamento', icon: MapPin, label: 'Rastro' });
+    }
+
     tabs.push({ id: 'perfil', icon: UserCircle, label: 'Perfil' });
   }
 
