@@ -282,7 +282,7 @@ export default function PainelLocalizacao() {
                       </div>
                     </Popup>
                   </Marker>
-                </div>
+                </span>
               );
             })}
           </MapContainer>
