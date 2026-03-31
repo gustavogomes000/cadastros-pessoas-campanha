@@ -428,8 +428,8 @@ export default function TabLiderancas({ refreshKey, onSaved }: Props) {
           
           <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Região de atuação</label><textarea value={form.regiao_atuacao} onChange={e => update('regiao_atuacao', e.target.value)} rows={2} className={textareaCls} /></div>
           <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Apoiadores</label><input type="number" value={form.apoiadores_estimados} onChange={e => update('apoiadores_estimados', e.target.value)} className={inputCls} /></div>
-            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Meta votos</label><input type="number" value={form.meta_votos} onChange={e => update('meta_votos', e.target.value)} className={inputCls} /></div>
+            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Possíveis votos / conquistas</label><input type="number" value={form.apoiadores_estimados} onChange={e => update('apoiadores_estimados', e.target.value)} placeholder="Quantos votos pode trazer" className={inputCls} /></div>
+            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Quantos votos pode trazer</label><input type="number" value={form.meta_votos} onChange={e => update('meta_votos', e.target.value)} placeholder="Meta de votos" className={inputCls} /></div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
