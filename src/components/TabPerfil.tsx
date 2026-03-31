@@ -143,6 +143,17 @@ function UsuarioModal({ info, onClose, onUpdated }: { info: UsuarioModalInfo; on
           </p>
         )}
 
+        {/* Modules toggle */}
+        <button
+          onClick={() => setShowModulos(!showModulos)}
+          className="w-full flex items-center gap-2 p-2.5 rounded-xl border border-border bg-muted/50 text-sm font-medium text-foreground active:scale-[0.98] transition-all"
+        >
+          <Settings size={14} className="text-primary" />
+          Módulos / Permissões
+          <span className="ml-auto text-xs text-muted-foreground">{showModulos ? '▲' : '▼'}</span>
+        </button>
+        {showModulos && <ModulosUsuario usuarioId={info.usuario.id} />}
+
         <div className="flex gap-2">
           <button
             onClick={handleSalvar}
