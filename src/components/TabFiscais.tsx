@@ -256,10 +256,10 @@ export default function TabFiscais({ refreshKey, onSaved }: Props) {
           <ArrowLeft size={16} /> Voltar à lista
         </button>
         <div className="section-card">
-          <h2 className="section-title">👤 Dados do Fiscal</h2>
+          <h2 className="section-title">👤 Dados Pessoais</h2>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Nome <span className="text-primary">*</span></label>
-            <input type="text" value={form.nome} onChange={e => update('nome', e.target.value)} placeholder="Nome completo" className={inputCls} />
+            <label className="text-xs font-medium text-muted-foreground">Nome completo <span className="text-primary">*</span></label>
+            <input type="text" value={form.nome} onChange={e => update('nome', e.target.value)} placeholder="Nome do fiscal" className={inputCls} />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
@@ -275,12 +275,50 @@ export default function TabFiscais({ refreshKey, onSaved }: Props) {
             )}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Telefone</label><input type="tel" value={form.telefone} onChange={e => update('telefone', e.target.value)} className={inputCls} /></div>
-            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">WhatsApp</label><input type="tel" value={form.whatsapp} onChange={e => update('whatsapp', e.target.value)} className={inputCls} /></div>
+            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Telefone</label><input type="tel" value={form.telefone} onChange={e => update('telefone', e.target.value)} placeholder="(00) 0000-0000" className={inputCls} /></div>
+            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">WhatsApp</label><input type="tel" value={form.whatsapp} onChange={e => update('whatsapp', e.target.value)} placeholder="(00) 00000-0000" className={inputCls} /></div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">E-mail</label>
+            <input type="email" value={form.email} onChange={e => update('email', e.target.value)} placeholder="email@exemplo.com" className={inputCls} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Instagram</label><input type="text" value={form.instagram} onChange={e => update('instagram', e.target.value)} placeholder="@usuario" className={inputCls} /></div>
+            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Facebook</label><input type="text" value={form.facebook} onChange={e => update('facebook', e.target.value)} placeholder="Nome ou link" className={inputCls} /></div>
           </div>
         </div>
+
+        {/* Dados Eleitorais */}
         <div className="section-card">
-          <h2 className="section-title">🗳️ Dados de Fiscalização</h2>
+          <h2 className="section-title">🗳️ Dados Eleitorais</h2>
+          <button type="button" onClick={() => window.open('https://www.tse.jus.br/servicos-eleitorais/autoatendimento-eleitoral#/atendimento-eleitor', '_blank')}
+            className="w-full flex items-center justify-center gap-2 h-10 px-4 border border-border rounded-xl text-sm font-medium text-primary bg-primary/5 hover:bg-primary/10 active:scale-[0.97] transition-all">
+            <ExternalLink size={16} /> Consultar dados no TSE
+          </button>
+          <p className="text-[11px] text-muted-foreground -mt-2">Abra o site do TSE, consulte os dados eleitorais e preencha abaixo.</p>
+          <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Título de eleitor</label><input type="text" value={form.titulo_eleitor} onChange={e => update('titulo_eleitor', e.target.value)} placeholder="Número do título" className={inputCls} /></div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Zona</label><input type="text" value={form.zona_eleitoral} onChange={e => update('zona_eleitoral', e.target.value)} placeholder="045" className={inputCls} /></div>
+            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Seção</label><input type="text" value={form.secao_eleitoral} onChange={e => update('secao_eleitoral', e.target.value)} placeholder="0123" className={inputCls} /></div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2 space-y-1"><label className="text-xs font-medium text-muted-foreground">Município</label><input type="text" value={form.municipio_eleitoral} onChange={e => update('municipio_eleitoral', e.target.value)} placeholder="Cidade" className={inputCls} /></div>
+            <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">UF</label><input type="text" value={form.uf_eleitoral} onChange={e => update('uf_eleitoral', e.target.value)} placeholder="GO" className={inputCls} maxLength={2} /></div>
+          </div>
+          <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Colégio eleitoral</label><input type="text" value={form.colegio_eleitoral} onChange={e => update('colegio_eleitoral', e.target.value)} placeholder="Nome da escola / local" className={inputCls} /></div>
+          <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Endereço do colégio</label><input type="text" value={form.endereco_colegio} onChange={e => update('endereco_colegio', e.target.value)} placeholder="Endereço" className={inputCls} /></div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Situação do título</label>
+            <select value={form.situacao_titulo} onChange={e => update('situacao_titulo', e.target.value)} className={selectCls}>
+              <option value="">Selecione...</option>
+              {situacoesTitulo.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Dados de Fiscalização */}
+        <div className="section-card">
+          <h2 className="section-title">🔍 Dados de Fiscalização</h2>
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Vincular a uma liderança</label>
             <select value={form.lideranca_id} onChange={e => update('lideranca_id', e.target.value)} className={selectCls}>
@@ -288,12 +326,11 @@ export default function TabFiscais({ refreshKey, onSaved }: Props) {
               {liderancas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
             </select>
           </div>
-          <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Colégio eleitoral</label><input type="text" value={form.colegio_eleitoral} onChange={e => update('colegio_eleitoral', e.target.value)} className={inputCls} /></div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Zona fiscal</label><input type="text" value={form.zona_fiscal} onChange={e => update('zona_fiscal', e.target.value)} className={inputCls} /></div>
             <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Seção fiscal</label><input type="text" value={form.secao_fiscal} onChange={e => update('secao_fiscal', e.target.value)} className={inputCls} /></div>
           </div>
-          <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Observações</label><textarea value={form.observacoes} onChange={e => update('observacoes', e.target.value)} rows={3} className="w-full px-3 py-2 bg-card border border-border rounded-xl text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30 resize-none" /></div>
+          <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Observações</label><textarea value={form.observacoes} onChange={e => update('observacoes', e.target.value)} rows={3} className={textareaCls} /></div>
         </div>
         <button onClick={handleSave} disabled={saving} className="w-full h-14 gradient-primary text-white text-base font-semibold rounded-2xl shadow-lg shadow-pink-500/25 active:scale-[0.97] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
           {saving ? <><Loader2 size={20} className="animate-spin" /> Salvando...</> : '✅ Salvar Fiscal'}
