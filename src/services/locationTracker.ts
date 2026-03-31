@@ -57,6 +57,30 @@ let cachedUsuarioId: string | null = null;
 let cachedUsuarioIdExpiry = 0;
 let backgroundLocationHandler: ((event: Event) => void) | null = null;
 let visibilityHandler: (() => void) | null = null;
+let lastGeolocationFallbackAt = 0;
+const GEOLOCATION_FALLBACK_COOLDOWN_MS = 20_000;
+
+function isBrowserEnvironment() {
+  return typeof window !== 'undefined' && typeof navigator !== 'undefined';
+}
+
+function safeStorageGet(key: string): string | null {
+  if (!isBrowserEnvironment()) return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key: string, value: string) {
+  if (!isBrowserEnvironment()) return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage access errors (private mode, blocked storage, etc.)
+  }
+}
 
 function resetRuntimeState() {
   lastPersistAt = 0;
@@ -81,8 +105,7 @@ export function getLiveTrackingEventName() {
 }
 
 export function getCaptureIntervalMinutes(): CaptureIntervalMinutes {
-  if (typeof window === 'undefined') return DEFAULT_CAPTURE_INTERVAL;
-  const stored = Number(window.localStorage.getItem(CAPTURE_INTERVAL_STORAGE_KEY));
+  const stored = Number(safeStorageGet(CAPTURE_INTERVAL_STORAGE_KEY));
   return isValidCaptureInterval(stored) ? stored : DEFAULT_CAPTURE_INTERVAL;
 }
 
@@ -93,9 +116,7 @@ export function getCaptureIntervalMs() {
 export async function setCaptureIntervalMinutes(minutes: CaptureIntervalMinutes) {
   if (!isValidCaptureInterval(minutes)) return;
 
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(CAPTURE_INTERVAL_STORAGE_KEY, String(minutes));
-  }
+  safeStorageSet(CAPTURE_INTERVAL_STORAGE_KEY, String(minutes));
 
   if (isTrackingActive) restartCaptureLoop();
   await updatePeriodicSyncInterval();
@@ -125,10 +146,8 @@ function movedBeyond(
 }
 
 function readCachedPoint(): LiveTrackingPoint | null {
-  if (typeof window === 'undefined') return null;
-
   try {
-    const raw = window.localStorage.getItem(LAST_LOCATION_STORAGE_KEY);
+    const raw = safeStorageGet(LAST_LOCATION_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as LiveTrackingPoint;
 
@@ -140,9 +159,9 @@ function readCachedPoint(): LiveTrackingPoint | null {
 }
 
 function emitLiveTrackingUpdate(point: LiveTrackingPoint) {
-  if (typeof window === 'undefined') return;
+  if (!isBrowserEnvironment()) return;
 
-  window.localStorage.setItem(LAST_LOCATION_STORAGE_KEY, JSON.stringify(point));
+  safeStorageSet(LAST_LOCATION_STORAGE_KEY, JSON.stringify(point));
   window.dispatchEvent(new CustomEvent(LIVE_TRACKING_EVENT, { detail: point }));
   lastUiEmitAt = Date.now();
   lastUiLat = point.latitude;
@@ -150,6 +169,8 @@ function emitLiveTrackingUpdate(point: LiveTrackingPoint) {
 }
 
 async function getBatteryLevel(): Promise<number | null> {
+  if (!isBrowserEnvironment()) return null;
+
   try {
     const battery = await (navigator as Navigator & { getBattery?: () => Promise<{ level: number }> }).getBattery?.();
     return battery ? Math.round(battery.level * 100) : null;
@@ -178,18 +199,21 @@ async function getUsuarioId(forceRefresh = false): Promise<string | null> {
 
     const { data, error } = await supabase
       .from('hierarquia_usuarios')
-      .select('id')
+      .select('id, criado_em')
       .eq('auth_user_id', user.id)
-      .eq('ativo', true)
-      .maybeSingle();
+      .neq('ativo', false)
+      .order('criado_em', { ascending: false })
+      .limit(1);
 
-    if (error || !data?.id) {
+    const selected = data?.[0]?.id ?? null;
+
+    if (error || !selected) {
       resetCachedUsuarioId();
       console.warn('[locationTracker] usuário sem vínculo ativo para rastreio', error?.message ?? user.id);
       return null;
     }
 
-    cachedUsuarioId = data.id;
+    cachedUsuarioId = selected;
     cachedUsuarioIdExpiry = now + USER_ID_CACHE_TTL_MS;
     return cachedUsuarioId;
   } catch (error) {
@@ -302,12 +326,14 @@ const IP_PROVIDERS = [
 ];
 
 async function captureByIP(forcePersist = false, fonte: LocationSource = 'ip') {
+  if (!isBrowserEnvironment()) return;
+
   for (const provider of IP_PROVIDERS) {
     try {
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 8_000);
+      const timeout = setTimeout(() => controller.abort(), 8_000);
       const response = await fetch(provider.url, { signal: controller.signal });
-      window.clearTimeout(timeout);
+      clearTimeout(timeout);
 
       if (!response.ok) continue;
 
@@ -327,6 +353,8 @@ async function captureByIP(forcePersist = false, fonte: LocationSource = 'ip') {
 }
 
 function captureGPS(forcePersist = false) {
+  if (!isBrowserEnvironment()) return;
+
   if (!('geolocation' in navigator)) {
     void captureByIP(forcePersist, 'ip');
     return;
@@ -344,8 +372,12 @@ function captureGPS(forcePersist = false) {
         forcePersist,
       );
     },
-    () => {
-      void captureByIP(forcePersist, 'ip');
+    (error) => {
+      const now = Date.now();
+      if (error.code === error.PERMISSION_DENIED || now - lastGeolocationFallbackAt >= GEOLOCATION_FALLBACK_COOLDOWN_MS) {
+        lastGeolocationFallbackAt = now;
+        void captureByIP(forcePersist, 'ip');
+      }
     },
     {
       enableHighAccuracy: true,
@@ -411,6 +443,7 @@ function unregisterBackgroundLocationListener() {
 }
 
 async function updatePeriodicSyncInterval() {
+  if (!isBrowserEnvironment()) return;
   if (!('serviceWorker' in navigator)) return;
 
   try {
@@ -426,6 +459,7 @@ async function updatePeriodicSyncInterval() {
 }
 
 export function registerBackgroundSync() {
+  if (!isBrowserEnvironment()) return;
   if (!('serviceWorker' in navigator)) return;
 
   navigator.serviceWorker.ready
@@ -447,6 +481,8 @@ export function registerBackgroundSync() {
 }
 
 export function startLocationTracking() {
+  if (!isBrowserEnvironment()) return;
+
   stopLocationTracking();
   isTrackingActive = true;
   resetRuntimeState();
@@ -486,10 +522,14 @@ export function startLocationTracking() {
   }
 
   restartCaptureLoop();
+
+  console.info('[locationTracker] rastreio iniciado');
 }
 
 export function stopLocationTracking() {
   isTrackingActive = false;
+
+  if (!isBrowserEnvironment()) return;
 
   if (watchId !== null && 'geolocation' in navigator) {
     navigator.geolocation.clearWatch(watchId);
@@ -505,4 +545,7 @@ export function stopLocationTracking() {
   unregisterVisibilityListener();
   resetCachedUsuarioId();
   resetRuntimeState();
+  lastGeolocationFallbackAt = 0;
+
+  console.info('[locationTracker] rastreio parado');
 }
