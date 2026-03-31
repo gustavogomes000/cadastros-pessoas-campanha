@@ -423,7 +423,7 @@ export default function TabPerfil() {
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-primary truncate">{selectedSuplente?.nome || selectedLideranca?.pessoas?.nome}</p>
+                      <p className="text-xs font-semibold text-primary truncate">{selectedSuplente?.nome || selectedLideranca?.nome}</p>
                       <p className="text-[10px] text-muted-foreground truncate">
                         {selectedSuplente?.regiao_atuacao || selectedLideranca?.regiao_atuacao || ''}
                       </p>
