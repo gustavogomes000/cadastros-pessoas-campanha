@@ -34,6 +34,7 @@ export default function Home() {
     rede: 'Rede por Suplente',
     hierarquia: 'Hierarquia da Rede',
     rastreamento: 'Rastreamento',
+    criar_usuarios: 'Criar Usuários',
     perfil: 'Perfil',
   };
 
