@@ -59,6 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         await fetchUsuario(session.user.id);
+        // Start location tracking when logged in
+        startLocationTracking();
+        registerBackgroundSync();
       }
       setLoading(false);
       initialized = true;
@@ -69,13 +72,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         await fetchUsuario(session.user.id);
+        startLocationTracking();
+        registerBackgroundSync();
       } else {
         setUsuario(null);
+        stopLocationTracking();
       }
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      stopLocationTracking();
+    };
   }, []);
 
   const signIn = async (nome: string, password: string) => {
