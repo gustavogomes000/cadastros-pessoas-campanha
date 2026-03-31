@@ -88,12 +88,8 @@ export default function TabLiderancas({ refreshKey, onSaved, viewOnly }: Props) 
 
   useEffect(() => { fetchData(); }, [fetchData, refreshKey]);
 
+
   useEffect(() => {
-    if (isAdmin) {
-      supabase.from('hierarquia_usuarios').select('id, nome').in('tipo', ['suplente', 'lideranca', 'coordenador']).then(({ data }) => {
-        if (data) setAgentes(data);
-      });
-    }
     supabase.from('liderancas').select('id, pessoas(nome)').eq('status', 'Ativa')
       .then(({ data }) => {
         if (data) setLiderancasExistentes(data.map((l: any) => ({ id: l.id, nome: l.pessoas?.nome || '—' })));
