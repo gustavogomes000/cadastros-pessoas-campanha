@@ -50,9 +50,10 @@ interface LiderancaRow {
 interface Props {
   refreshKey: number;
   onSaved?: () => void;
+  viewOnly?: boolean;
 }
 
-export default function TabLiderancas({ refreshKey, onSaved }: Props) {
+export default function TabLiderancas({ refreshKey, onSaved, viewOnly }: Props) {
   const { usuario, isAdmin } = useAuth();
   const [mode, setMode] = useState<'list' | 'form' | 'detail'>('list');
   const [data, setData] = useState<LiderancaRow[]>([]);
@@ -359,7 +360,7 @@ export default function TabLiderancas({ refreshKey, onSaved }: Props) {
   }
 
   // ===== FORM VIEW =====
-  if (mode === 'form') {
+  if (mode === 'form' && !viewOnly) {
     return (
       <div className="space-y-4 pb-24">
         <button onClick={() => setMode('list')} className="flex items-center gap-1 text-sm text-muted-foreground active:scale-95">
@@ -460,10 +461,12 @@ export default function TabLiderancas({ refreshKey, onSaved }: Props) {
   // ===== LIST VIEW =====
   return (
     <div className="space-y-3 pb-24">
-      <button onClick={() => { setForm({ ...emptyForm }); setPessoaExistenteId(null); setCpfStatus('idle'); setMode('form'); }}
-        className="w-full h-12 gradient-primary text-white font-semibold rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-2">
-        <PlusCircle size={18} /> Cadastrar Liderança
-      </button>
+      {!viewOnly && (
+        <button onClick={() => { setForm({ ...emptyForm }); setPessoaExistenteId(null); setCpfStatus('idle'); setMode('form'); }}
+          className="w-full h-12 gradient-primary text-white font-semibold rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-2">
+          <PlusCircle size={18} /> Cadastrar Liderança
+        </button>
+      )}
 
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
