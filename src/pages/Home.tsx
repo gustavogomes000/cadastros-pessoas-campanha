@@ -53,7 +53,7 @@ export default function Home() {
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain">
-        <div className="max-w-[672px] mx-auto px-4 py-4 animate-in">
+        <div key={activeTab} className="max-w-[672px] mx-auto px-4 py-4 animate-in">
           {activeTab === 'cadastrar' && <TabCadastrar onSaved={handleSaved} />}
           {activeTab === 'suplentes' && <TabSuplentes refreshKey={refreshKey} />}
           {activeTab === 'liderancas' && <TabLiderancas refreshKey={refreshKey} />}
