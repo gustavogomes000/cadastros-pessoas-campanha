@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Users, UserCircle, BarChart3, MapPin, Shield, Target, List, UserCog } from 'lucide-react';
+import { Users, UserCircle, BarChart3, MapPin, Shield, Target, List } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
-export type TabId = 'liderancas' | 'fiscais' | 'eleitores' | 'cadastros' | 'rastreamento' | 'usuarios' | 'perfil';
+export type TabId = 'liderancas' | 'fiscais' | 'eleitores' | 'cadastros' | 'rastreamento' | 'perfil';
 
 interface Props {
   active: TabId;
@@ -17,7 +17,6 @@ const ALL_TABS: { id: TabId; icon: typeof Users; label: string; module?: string 
   { id: 'eleitores', icon: Target, label: 'Eleitores', module: 'cadastrar_eleitores' },
   { id: 'cadastros', icon: List, label: 'Cadastros' },
   { id: 'rastreamento', icon: MapPin, label: 'Rastro' },
-  { id: 'usuarios', icon: UserCog, label: 'Usuários' },
   { id: 'perfil', icon: UserCircle, label: 'Perfil' },
 ];
 
@@ -53,8 +52,6 @@ export default function BottomNav({ active, onChange }: Props) {
     if (tab.id === 'cadastros') return true;
     // Rastreamento - super_admin only
     if (tab.id === 'rastreamento') return isSuperAdmin;
-    // Usuarios - admin/coordenador only
-    if (tab.id === 'usuarios') return isAdminOrCoord;
     // Module-based tabs
     if (tab.module) {
       if (isAdminOrCoord) return true;
