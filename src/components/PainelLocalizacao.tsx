@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { MapPin, Clock, Battery, Wifi, ChevronDown, ChevronUp, RefreshCw, Loader2, Navigation, Map, List, Route } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
@@ -110,7 +110,10 @@ export default function PainelLocalizacao() {
     : userGroups;
 
   const mapBounds = useMemo(() => {
-    const pts = displayGroups.flatMap(g => g.locations.map(l => [l.latitude, l.longitude] as [number, number]));
+    const pts = displayGroups.flatMap(g => g.locations
+      .map(l => [Number(l.latitude), Number(l.longitude)] as [number, number])
+      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180)
+    );
     if (pts.length === 0) return null;
     return L.latLngBounds(pts);
   }, [displayGroups]);
@@ -217,13 +220,17 @@ export default function PainelLocalizacao() {
             <FitBounds bounds={mapBounds} />
 
             {displayGroups.map(group => {
-              const path = group.locations.map(l => [l.latitude, l.longitude] as [number, number]);
-              const last = group.locations[group.locations.length - 1];
-              const first = group.locations[0];
+              const validLocs = group.locations.filter(l =>
+                Number.isFinite(Number(l.latitude)) && Number.isFinite(Number(l.longitude)) &&
+                Math.abs(Number(l.latitude)) <= 90 && Math.abs(Number(l.longitude)) <= 180
+              );
+              const path = validLocs.map(l => [Number(l.latitude), Number(l.longitude)] as [number, number]);
+              if (validLocs.length === 0) return null;
+              const last = validLocs[validLocs.length - 1];
+              const first = validLocs[0];
 
               return (
-                <span key={group.usuario_id}>
-                  {/* Route polyline */}
+                <React.Fragment key={group.usuario_id}>
                   {path.length > 1 && (
                     <Polyline
                       positions={path}
@@ -236,9 +243,8 @@ export default function PainelLocalizacao() {
                     />
                   )}
 
-                  {/* Intermediate points */}
-                  {group.locations.slice(1, -1).map(loc => (
-                    <Marker key={loc.id} position={[loc.latitude, loc.longitude]} icon={createDotIcon(group.color)}>
+                  {validLocs.slice(1, -1).map(loc => (
+                    <Marker key={loc.id} position={[Number(loc.latitude), Number(loc.longitude)]} icon={createDotIcon(group.color)}>
                       <Popup>
                         <div className="text-xs">
                           <strong>{group.nome}</strong><br />
@@ -251,9 +257,8 @@ export default function PainelLocalizacao() {
                     </Marker>
                   ))}
 
-                  {/* Start marker */}
                   {first && (
-                    <Marker position={[first.latitude, first.longitude]} icon={createDotIcon(group.color)}>
+                    <Marker position={[Number(first.latitude), Number(first.longitude)]} icon={createDotIcon(group.color)}>
                       <Popup>
                         <div className="text-xs">
                           <strong>{group.nome}</strong> — Início<br />
@@ -263,9 +268,8 @@ export default function PainelLocalizacao() {
                     </Marker>
                   )}
 
-                  {/* Last known position (big marker) */}
                   <Marker
-                    position={[last.latitude, last.longitude]}
+                    position={[Number(last.latitude), Number(last.longitude)]}
                     icon={createUserIcon(group.nome.charAt(0).toUpperCase(), group.color)}
                   >
                     <Popup>
@@ -282,7 +286,7 @@ export default function PainelLocalizacao() {
                       </div>
                     </Popup>
                   </Marker>
-                </span>
+                </React.Fragment>
               );
             })}
           </MapContainer>
