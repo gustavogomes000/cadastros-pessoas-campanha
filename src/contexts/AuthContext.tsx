@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { startLocationTracking, stopLocationTracking, registerBackgroundSync } from '@/services/locationTracker';
+import { resolverMunicipioId, buscarNomeMunicipio } from '@/lib/resolverMunicipio';
 import type { User } from '@supabase/supabase-js';
 
 export type TipoUsuario = 'super_admin' | 'coordenador' | 'suplente' | 'lideranca' | 'fiscal';
@@ -13,6 +14,7 @@ interface HierarquiaUsuario {
   superior_id: string | null;
   suplente_id: string | null;
   ativo: boolean;
+  municipio_id?: string | null;
 }
 
 interface AuthContextType {
@@ -24,6 +26,8 @@ interface AuthContextType {
   isLideranca: boolean;
   isFiscal: boolean;
   tipoUsuario: TipoUsuario | null;
+  municipioId: string | null;
+  municipioNome: string | null;
   signIn: (nome: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -39,6 +43,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [usuario, setUsuario] = useState<HierarquiaUsuario | null>(null);
   const [loading, setLoading] = useState(true);
+  const [municipioId, setMunicipioId] = useState<string | null>(null);
+  const [municipioNome, setMunicipioNome] = useState<string | null>(null);
+
+  const resolverMunicipio = async (usr: HierarquiaUsuario) => {
+    try {
+      // 1. Se tem municipio_id direto
+      if (usr.municipio_id) {
+        setMunicipioId(usr.municipio_id);
+        const nome = await buscarNomeMunicipio(usr.municipio_id);
+        setMunicipioNome(nome);
+        return;
+      }
+      // 2. Se tem suplente_id, buscar via suplente_municipio
+      if (usr.suplente_id) {
+        const munId = await resolverMunicipioId(usr.suplente_id);
+        if (munId) {
+          setMunicipioId(munId);
+          const nome = await buscarNomeMunicipio(munId);
+          setMunicipioNome(nome);
+          return;
+        }
+      }
+      // 3. Avulso sem municipio
+      setMunicipioId(null);
+      setMunicipioNome(null);
+    } catch {
+      setMunicipioId(null);
+      setMunicipioNome(null);
+    }
+  };
 
   const fetchUsuario = async (authUserId: string) => {
     const { data } = await supabase
@@ -48,7 +82,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('ativo', true)
       .single();
     if (data) {
-      setUsuario(data as unknown as HierarquiaUsuario);
+      const usr = data as unknown as HierarquiaUsuario;
+      setUsuario(usr);
+      await resolverMunicipio(usr);
     }
   };
 
@@ -59,7 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         await fetchUsuario(session.user.id);
-        // Start location tracking when logged in
         startLocationTracking();
         registerBackgroundSync();
       }
@@ -76,6 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerBackgroundSync();
       } else {
         setUsuario(null);
+        setMunicipioId(null);
+        setMunicipioNome(null);
         stopLocationTracking();
       }
       setLoading(false);
@@ -97,6 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setUsuario(null);
+    setMunicipioId(null);
+    setMunicipioNome(null);
   };
 
   const tipo = usuario?.tipo ?? null;
@@ -111,6 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLideranca: tipo === 'lideranca',
       isFiscal: tipo === 'fiscal',
       tipoUsuario: tipo,
+      municipioId,
+      municipioNome,
       signIn,
       signOut,
     }}>

@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCidade } from '@/contexts/CidadeContext';
 import BottomNav, { type TabId } from '@/components/BottomNav';
 import TabLiderancas from '@/components/TabLiderancas';
 import TabFiscais from '@/components/TabFiscais';
@@ -7,12 +8,17 @@ import TabEleitores from '@/components/TabEleitores';
 import TabCadastros from '@/components/TabCadastros';
 import TabPerfil from '@/components/TabPerfil';
 import PainelLocalizacao from '@/components/PainelLocalizacao';
+import SeletorCidade from '@/components/SeletorCidade';
 
 export default function Home() {
   const { isAdmin, tipoUsuario } = useAuth();
+  const { municipios } = useCidade();
   const [activeTab, setActiveTab] = useState<TabId>('liderancas');
   const [refreshKey, setRefreshKey] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const isAdminOrCoord = tipoUsuario === 'super_admin' || tipoUsuario === 'coordenador';
+  const showCitySelector = isAdminOrCoord && municipios.length > 0;
 
   const handleTabChange = (tab: TabId) => {
     setActiveTab(tab);
@@ -38,8 +44,17 @@ export default function Home() {
 
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border shrink-0">
         <div className="max-w-[672px] mx-auto px-4 py-3">
-          <h1 className="text-xl font-bold text-foreground">{titles[activeTab] || ''}</h1>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Rede política – Dra. Fernanda Sarelli</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-foreground">{titles[activeTab] || ''}</h1>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Rede política – Dra. Fernanda Sarelli</p>
+            </div>
+          </div>
+          {showCitySelector && activeTab !== 'perfil' && activeTab !== 'rastreamento' && (
+            <div className="mt-2">
+              <SeletorCidade />
+            </div>
+          )}
         </div>
       </header>
 
