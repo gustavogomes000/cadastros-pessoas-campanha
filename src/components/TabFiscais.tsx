@@ -358,16 +358,23 @@ export default function TabFiscais({ refreshKey, onSaved, viewOnly }: Props) {
           </div>
         </div>
 
+        {/* Ligação Política */}
+        <CampoLigacaoPolitica
+          bloqueado={ligBloqueado}
+          nomeFixo={ligNomeFixo}
+          subtituloFixo={ligSubtitulo}
+          suplenteIdSelecionado={ligSuplenteId}
+          liderancaIdSelecionada={ligLiderancaId}
+          onSuplenteChange={(id, _nome, munId) => { setLigSuplenteId(id); setLigLiderancaId(null); setLigMunicipioId(munId); setLigErro(null); }}
+          onLiderancaChange={(id, _nome, supId, munId) => { setLigLiderancaId(id); setLigSuplenteId(supId); setLigMunicipioId(munId); setLigErro(null); }}
+          obrigatorio={tipoUsuario !== 'super_admin' && tipoUsuario !== 'coordenador'}
+          erro={ligErro}
+          cidadeAtivaId={cidadeAtiva?.id || null}
+        />
+
         {/* Dados de Fiscalização */}
         <div className="section-card">
           <h2 className="section-title">🔍 Dados de Fiscalização</h2>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Vincular a uma liderança</label>
-            <select value={form.lideranca_id} onChange={e => update('lideranca_id', e.target.value)} className={selectCls}>
-              <option value="">Nenhuma (direto do suplente)</option>
-              {liderancas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
-            </select>
-          </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Zona fiscal</label><input type="text" value={form.zona_fiscal} onChange={e => update('zona_fiscal', e.target.value)} className={inputCls} /></div>
             <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Seção fiscal</label><input type="text" value={form.secao_fiscal} onChange={e => update('secao_fiscal', e.target.value)} className={inputCls} /></div>
