@@ -331,14 +331,58 @@ export default function PainelLocalizacao() {
         ))}
       </div>
 
+      {/* Type filter */}
+      <div className="space-y-1">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Filtrar por tipo</p>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          <button onClick={() => { setFiltroTipo('todos'); setSelectedUserId(null); }}
+            className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border font-semibold transition-all active:scale-95 ${
+              filtroTipo === 'todos' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'
+            }`}>
+            Todos ({userGroups.length})
+          </button>
+          {Object.entries(tipoCounts).map(([tipo, count]) => (
+            <button key={tipo} onClick={() => { setFiltroTipo(filtroTipo === tipo ? 'todos' : tipo); setSelectedUserId(null); }}
+              className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border font-semibold transition-all active:scale-95 ${
+                filtroTipo === tipo ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'
+              }`}>
+              {tipo === 'super_admin' ? 'Admin' : tipo === 'coordenador' ? 'Coord.' : tipo === 'suplente' ? 'Suplente' : tipo === 'lideranca' ? 'Liderança' : tipo === 'fiscal' ? 'Fiscal' : tipo} ({count})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Suplente filter */}
+      {suplentesUnicos.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Filtrar por suplente</p>
+          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+            <button onClick={() => { setFiltroSuplente('todos'); setSelectedUserId(null); }}
+              className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border font-semibold transition-all active:scale-95 ${
+                filtroSuplente === 'todos' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'
+              }`}>
+              Todos
+            </button>
+            {suplentesUnicos.map(s => (
+              <button key={s.id} onClick={() => { setFiltroSuplente(filtroSuplente === s.id ? 'todos' : s.id); setSelectedUserId(null); }}
+                className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border font-semibold transition-all active:scale-95 ${
+                  filtroSuplente === s.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'
+                }`}>
+                {s.nome.split(' ')[0]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* User filter chips */}
-      {userGroups.length > 1 && (
+      {filteredGroups.length > 1 && (
         <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
           <button onClick={() => setSelectedUserId(null)}
             className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border transition-all active:scale-95 ${
               !selectedUserId ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'
             }`}>Todos</button>
-          {userGroups.map(g => (
+          {filteredGroups.map(g => (
             <button key={g.usuario_id} onClick={() => setSelectedUserId(selectedUserId === g.usuario_id ? null : g.usuario_id)}
               className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border transition-all active:scale-95 flex items-center gap-1 ${
                 selectedUserId === g.usuario_id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'
