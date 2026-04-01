@@ -218,7 +218,7 @@ export default function TabFiscais({ refreshKey, onSaved, viewOnly }: Props) {
     toast({ title: 'Fiscal excluído' });
     setSelected(null);
     setMode('list');
-    fetchData(true);
+    invalidarCadastros();
   };
 
   const filtered = useMemo(() => data.filter(f => {
