@@ -209,14 +209,15 @@ export default function TabEleitores({ refreshKey, onSaved, viewOnly }: Props) {
         pessoaId = novaPessoa!.id;
       }
 
-      const { error } = await supabase.from('possiveis_eleitores').insert({
+      const { error } = await (supabase as any).from('possiveis_eleitores').insert({
         pessoa_id: pessoaId,
         cadastrado_por: usuario?.id || null,
-        suplente_id: usuario?.suplente_id || null,
-        lideranca_id: form.lideranca_id || null,
+        suplente_id: ligSuplenteId || usuario?.suplente_id || null,
+        lideranca_id: ligLiderancaId || form.lideranca_id || null,
         fiscal_id: form.fiscal_id || null,
         compromisso_voto: form.compromisso_voto,
         observacoes: form.observacoes || null,
+        municipio_id: ligMunicipioId || null,
       });
       if (error) throw error;
 
