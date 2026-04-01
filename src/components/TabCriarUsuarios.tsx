@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCidade } from '@/contexts/CidadeContext';
 import { toast } from '@/hooks/use-toast';
 import {
   Loader2, UserPlus, Users, User, CheckCircle2, Search, Eye, EyeOff,
@@ -36,6 +37,7 @@ type TabType = 'suplentes' | 'liderancas';
 
 export default function TabCriarUsuarios() {
   const { isAdmin } = useAuth();
+  const { municipios } = useCidade();
   const [tab, setTab] = useState<TabType>('suplentes');
   const [suplentes, setSuplentes] = useState<SuplenteExterno[]>([]);
   const [liderancas, setLiderancas] = useState<LiderancaExterna[]>([]);
@@ -50,6 +52,8 @@ export default function TabCriarUsuarios() {
   const [showSenha, setShowSenha] = useState(false);
   const [superiorId, setSuperiorId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [cidadeSelecionada, setCidadeSelecionada] = useState<string>('');
+  const [cidadeErro, setCidadeErro] = useState('');
 
   useEffect(() => {
     fetchAll();
@@ -101,11 +105,14 @@ export default function TabCriarUsuarios() {
     setSenha('');
     setSuperiorId('');
     setShowSenha(false);
+    setCidadeSelecionada('');
+    setCidadeErro('');
   };
 
   const handleCreate = async () => {
     if (!nome.trim()) { toast({ title: 'Informe o nome', variant: 'destructive' }); return; }
     if (!senha.trim() || senha.length < 4) { toast({ title: 'Senha deve ter pelo menos 4 caracteres', variant: 'destructive' }); return; }
+    if (!cidadeSelecionada) { setCidadeErro('Selecione a cidade do usuário'); return; }
     if (!creatingFor) return;
 
     setSaving(true);
@@ -115,6 +122,7 @@ export default function TabCriarUsuarios() {
         senha: senha.trim(),
         tipo: creatingFor.tipo === 'suplentes' ? 'suplente' : 'lideranca',
         superior_id: superiorId || null,
+        municipio_id: cidadeSelecionada,
       };
 
       if (creatingFor.tipo === 'suplentes') {
@@ -213,6 +221,22 @@ export default function TabCriarUsuarios() {
                   <option key={u.id} value={u.id}>{u.nome} ({u.tipo})</option>
                 ))}
               </select>
+            </div>
+
+            {/* Cidade */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Cidade *</label>
+              <select
+                value={cidadeSelecionada}
+                onChange={e => { setCidadeSelecionada(e.target.value); setCidadeErro(''); }}
+                className={`${inputCls} ${cidadeErro ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+              >
+                <option value="">Selecione a cidade...</option>
+                {municipios.map(m => (
+                  <option key={m.id} value={m.id}>{m.nome} – {m.uf}</option>
+                ))}
+              </select>
+              {cidadeErro && <p className="text-xs text-destructive mt-1">{cidadeErro}</p>}
             </div>
 
             <button

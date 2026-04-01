@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCidade } from '@/contexts/CidadeContext';
 import { toast } from '@/hooks/use-toast';
 import ModulosUsuario from '@/components/ModulosUsuario';
 import {
@@ -46,6 +47,7 @@ const MODULOS_INLINE = [
 
 export default function TabUsuarios() {
   const { isAdmin } = useAuth();
+  const { municipios } = useCidade();
   const [subTab, setSubTab] = useState<SubTab>('gerenciar');
   const [suplentes, setSuplentes] = useState<SuplenteExterno[]>([]);
   const [liderancas, setLiderancas] = useState<LiderancaExterna[]>([]);
@@ -61,6 +63,8 @@ export default function TabUsuarios() {
   const [tipoUsuario, setTipoUsuario] = useState<string>('suplente');
   const [superiorId, setSuperiorId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [cidadeSelecionada, setCidadeSelecionada] = useState<string>('');
+  const [cidadeErro, setCidadeErro] = useState('');
 
   // Avulso: link to suplente/liderança
   const [linkedSuplenteId, setLinkedSuplenteId] = useState<string | null>(null);
@@ -136,6 +140,8 @@ export default function TabUsuarios() {
     setLinkedSuplenteId(sup.id);
     setLinkSearch('');
     setSelectedModulos(new Set());
+    setCidadeSelecionada('');
+    setCidadeErro('');
   };
 
   const openCreateAvulso = () => {
@@ -148,11 +154,14 @@ export default function TabUsuarios() {
     setLinkedSuplenteId(null);
     setLinkSearch('');
     setSelectedModulos(new Set());
+    setCidadeSelecionada('');
+    setCidadeErro('');
   };
 
   const handleCreate = async () => {
     if (!nome.trim()) { toast({ title: 'Informe o nome', variant: 'destructive' }); return; }
     if (!senha.trim() || senha.length < 4) { toast({ title: 'Senha deve ter ao menos 4 caracteres', variant: 'destructive' }); return; }
+    if (!cidadeSelecionada) { setCidadeErro('Selecione a cidade do usuário'); return; }
     if (!creating) return;
 
     setSaving(true);
@@ -162,6 +171,7 @@ export default function TabUsuarios() {
         senha: senha.trim(),
         tipo: tipoUsuario,
         superior_id: superiorId || null,
+        municipio_id: cidadeSelecionada,
       };
       if (creating.tipo === 'suplente' && creating.suplenteId) {
         payload.suplente_id = creating.suplenteId;
@@ -487,6 +497,22 @@ export default function TabUsuarios() {
                 <option value="">Nenhum (raiz)</option>
                 {possiveisSuperior.map(u => (<option key={u.id} value={u.id}>{u.nome} ({tipoLabel(u.tipo)})</option>))}
               </select>
+            </div>
+
+            {/* Cidade */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Cidade *</label>
+              <select
+                value={cidadeSelecionada}
+                onChange={e => { setCidadeSelecionada(e.target.value); setCidadeErro(''); }}
+                className={`${inputCls} ${cidadeErro ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+              >
+                <option value="">Selecione a cidade...</option>
+                {municipios.map(m => (
+                  <option key={m.id} value={m.id}>{m.nome} – {m.uf}</option>
+                ))}
+              </select>
+              {cidadeErro && <p className="text-xs text-destructive mt-1">{cidadeErro}</p>}
             </div>
 
             {/* Módulos / Permissões inline */}
