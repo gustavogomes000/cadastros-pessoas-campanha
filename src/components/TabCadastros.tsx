@@ -72,15 +72,18 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
 
     const isAdminUser = tipoUsuario === 'super_admin' || tipoUsuario === 'coordenador';
 
+    const from = paginaRef.current * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     let lidQuery = (supabase as any).from('liderancas')
-      .select('id, status, regiao_atuacao, zona_atuacao, observacoes, criado_em, municipio_id, pessoas(nome, cpf, telefone, whatsapp, email, instagram, facebook, zona_eleitoral, secao_eleitoral, colegio_eleitoral, municipio_eleitoral, titulo_eleitor, observacoes_gerais), hierarquia_usuarios!liderancas_cadastrado_por_fkey(nome)')
-      .order('criado_em', { ascending: false });
+      .select('id, status, regiao_atuacao, zona_atuacao, criado_em, municipio_id, pessoas(nome, cpf, telefone, whatsapp, email, instagram, facebook, zona_eleitoral, secao_eleitoral, colegio_eleitoral, municipio_eleitoral, titulo_eleitor, observacoes_gerais), hierarquia_usuarios!liderancas_cadastrado_por_fkey(nome)')
+      .order('criado_em', { ascending: false }).range(from, to);
     let fisQuery = (supabase as any).from('fiscais')
-      .select('id, status, zona_fiscal, observacoes, criado_em, municipio_id, pessoas(nome, cpf, telefone, whatsapp, email, instagram, facebook, zona_eleitoral, secao_eleitoral, colegio_eleitoral, municipio_eleitoral, titulo_eleitor, observacoes_gerais), hierarquia_usuarios!fiscais_cadastrado_por_fkey(nome)')
-      .order('criado_em', { ascending: false });
+      .select('id, status, zona_fiscal, criado_em, municipio_id, pessoas(nome, cpf, telefone, whatsapp, email, instagram, facebook, zona_eleitoral, secao_eleitoral, colegio_eleitoral, municipio_eleitoral, titulo_eleitor, observacoes_gerais), hierarquia_usuarios!fiscais_cadastrado_por_fkey(nome)')
+      .order('criado_em', { ascending: false }).range(from, to);
     let eleQuery = (supabase as any).from('possiveis_eleitores')
-      .select('id, compromisso_voto, observacoes, criado_em, municipio_id, pessoas(nome, cpf, telefone, whatsapp, email, instagram, facebook, zona_eleitoral, secao_eleitoral, colegio_eleitoral, municipio_eleitoral, titulo_eleitor, observacoes_gerais), hierarquia_usuarios!possiveis_eleitores_cadastrado_por_fkey(nome)')
-      .order('criado_em', { ascending: false });
+      .select('id, compromisso_voto, criado_em, municipio_id, pessoas(nome, cpf, telefone, whatsapp, email, instagram, facebook, zona_eleitoral, secao_eleitoral, colegio_eleitoral, municipio_eleitoral, titulo_eleitor, observacoes_gerais), hierarquia_usuarios!possiveis_eleitores_cadastrado_por_fkey(nome)')
+      .order('criado_em', { ascending: false }).range(from, to);
 
     if (filtroMunicipioId) {
       lidQuery = lidQuery.eq('municipio_id', filtroMunicipioId);
