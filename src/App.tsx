@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { CidadeProvider } from "@/contexts/CidadeContext";
 import LoadingScreen from "@/components/LoadingScreen";
 
 import Login from "./pages/Login";
@@ -15,7 +16,6 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, usuario } = useAuth();
   if (loading) return <LoadingScreen message="Verificando acesso" showProgress />;
   if (!user) return <Navigate to="/login" replace />;
-  // Wait for usuario to load before rendering protected content
   if (!usuario) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -44,7 +44,9 @@ const App = () => (
       <Toaster />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <CidadeProvider>
+            <AppRoutes />
+          </CidadeProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
