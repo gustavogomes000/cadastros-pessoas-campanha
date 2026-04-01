@@ -96,33 +96,78 @@ export default function AdminDashboard() {
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [expandedTipo, setExpandedTipo] = useState<string | null>(null);
   const [totalVisitas, setTotalVisitas] = useState(0);
+  
+  // Cache for lazy-loaded data per vista
+  const [dataLoaded, setDataLoaded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isAdmin) { navigate('/'); return; }
-    fetchData();
-    fetchVisitas();
+    // Reset cache on city change
+    setDataLoaded(new Set());
+    setLiderancas([]);
+    setFiscais([]);
+    setEleitores([]);
+    // Always load usuarios (lightweight) and counts
+    fetchInitial();
   }, [isAdmin, cidadeAtiva]);
+  
+  // Lazy-load full data when vista requires it
+  useEffect(() => {
+    const needsFullData = vistaAtiva !== 'resumo' || periodo !== 'total';
+    if (needsFullData && !dataLoaded.has('full')) {
+      fetchFullData();
+    }
+  }, [vistaAtiva, periodo]);
 
-  const fetchVisitas = async () => {
+  const filtroMunicipioId = useMemo(() => 
+    isTodasCidades ? null : cidadeAtiva?.id || null
+  , [isTodasCidades, cidadeAtiva]);
+
+  const fetchInitial = async () => {
+    setLoading(true);
+    
+    // Use count queries (fast, no row limit) + usuarios list
+    const countFilter = (table: string) => {
+      let q = (supabase as any).from(table).select('*', { count: 'exact', head: true });
+      if (filtroMunicipioId) q = q.eq('municipio_id', filtroMunicipioId);
+      return q;
+    };
+
     const ontem = new Date(Date.now() - 86400000).toISOString();
-    const [{ count: cL }, { count: cF }, { count: cE }] = await Promise.all([
-      (supabase as any).from('liderancas').select('*', { count: 'exact', head: true })
-        .eq('origem_captacao', 'visita_comite').gte('criado_em', ontem),
-      (supabase as any).from('fiscais').select('*', { count: 'exact', head: true })
-        .eq('origem_captacao', 'visita_comite').gte('criado_em', ontem),
-      (supabase as any).from('possiveis_eleitores').select('*', { count: 'exact', head: true })
-        .eq('origem_captacao', 'visita_comite').gte('criado_em', ontem),
+    const visitaFilter = (table: string) => {
+      let q = (supabase as any).from(table).select('*', { count: 'exact', head: true })
+        .eq('origem_captacao', 'visita_comite').gte('criado_em', ontem);
+      return q;
+    };
+
+    const [cL, cF, cE, uRes, vL, vF, vE] = await Promise.all([
+      countFilter('liderancas'),
+      countFilter('fiscais'),
+      countFilter('possiveis_eleitores'),
+      supabase.from('hierarquia_usuarios').select('id, nome, tipo, suplente_id, ativo').eq('ativo', true),
+      visitaFilter('liderancas'),
+      visitaFilter('fiscais'),
+      visitaFilter('possiveis_eleitores'),
     ]);
-    setTotalVisitas((cL ?? 0) + (cF ?? 0) + (cE ?? 0));
+
+    setUsuarios((uRes.data || []) as any);
+    setTotalVisitas((vL.count ?? 0) + (vF.count ?? 0) + (vE.count ?? 0));
+    
+    // Store counts as fake summary data for the resumo view
+    setLiderancas(Array((cL.count ?? 0)).fill(null).map((_, i) => ({ id: `count-${i}`, criado_em: '', cadastrado_por: null, suplente_id: null, status: null, regiao_atuacao: null, tipo_lideranca: null, pessoas: null })) as any);
+    setFiscais(Array((cF.count ?? 0)).fill(null).map((_, i) => ({ id: `count-${i}`, criado_em: '', cadastrado_por: null, suplente_id: null, status: null, zona_fiscal: null, secao_fiscal: null, colegio_eleitoral: null, pessoas: null })) as any);
+    setEleitores(Array((cE.count ?? 0)).fill(null).map((_, i) => ({ id: `count-${i}`, criado_em: '', cadastrado_por: null, suplente_id: null, compromisso_voto: null, pessoas: null })) as any);
+    
+    setLoading(false);
   };
 
-  const fetchData = async () => {
+  const fetchFullData = async () => {
+    if (dataLoaded.has('full')) return;
     setLoading(true);
-    const filtroMunicipioId = isTodasCidades ? null : cidadeAtiva?.id || null;
 
-    let lQuery = (supabase as any).from('liderancas').select('id, criado_em, cadastrado_por, suplente_id, status, regiao_atuacao, tipo_lideranca, municipio_id, pessoas(nome, cpf, telefone, whatsapp, zona_eleitoral, secao_eleitoral)');
-    let fQuery = (supabase as any).from('fiscais').select('id, criado_em, cadastrado_por, suplente_id, status, zona_fiscal, secao_fiscal, colegio_eleitoral, municipio_id, pessoas(nome, cpf, telefone, whatsapp, zona_eleitoral, secao_eleitoral)');
-    let eQuery = (supabase as any).from('possiveis_eleitores').select('id, criado_em, cadastrado_por, suplente_id, compromisso_voto, municipio_id, pessoas(nome, cpf, telefone, whatsapp, zona_eleitoral, secao_eleitoral)');
+    let lQuery = (supabase as any).from('liderancas').select('id, criado_em, cadastrado_por, suplente_id, status, regiao_atuacao, tipo_lideranca, municipio_id, pessoas(nome, cpf, telefone, whatsapp, zona_eleitoral, secao_eleitoral)').order('criado_em', { ascending: false }).limit(1000);
+    let fQuery = (supabase as any).from('fiscais').select('id, criado_em, cadastrado_por, suplente_id, status, zona_fiscal, secao_fiscal, colegio_eleitoral, municipio_id, pessoas(nome, cpf, telefone, whatsapp, zona_eleitoral, secao_eleitoral)').order('criado_em', { ascending: false }).limit(1000);
+    let eQuery = (supabase as any).from('possiveis_eleitores').select('id, criado_em, cadastrado_por, suplente_id, compromisso_voto, municipio_id, pessoas(nome, cpf, telefone, whatsapp, zona_eleitoral, secao_eleitoral)').order('criado_em', { ascending: false }).limit(1000);
 
     if (filtroMunicipioId) {
       lQuery = lQuery.eq('municipio_id', filtroMunicipioId);
@@ -130,17 +175,12 @@ export default function AdminDashboard() {
       eQuery = eQuery.eq('municipio_id', filtroMunicipioId);
     }
 
-    const [lRes, fRes, eRes, uRes] = await Promise.all([
-      lQuery,
-      fQuery,
-      eQuery,
-      supabase.from('hierarquia_usuarios').select('id, nome, tipo, suplente_id, ativo').eq('ativo', true),
-    ]);
+    const [lRes, fRes, eRes] = await Promise.all([lQuery, fQuery, eQuery]);
 
     setLiderancas((lRes.data || []) as any);
     setFiscais((fRes.data || []) as any);
     setEleitores((eRes.data || []) as any);
-    setUsuarios((uRes.data || []) as any);
+    setDataLoaded(prev => new Set([...prev, 'full']));
     setLoading(false);
   };
 
@@ -755,7 +795,7 @@ export default function AdminDashboard() {
                   if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
                   toast({ title: `✅ ${nome} adicionada!` });
                   input.value = '';
-                  fetchData();
+                  fetchInitial();
                 }}
                 className="h-10 px-4 gradient-primary text-white rounded-xl text-sm font-semibold flex items-center gap-1 active:scale-95"
               >
