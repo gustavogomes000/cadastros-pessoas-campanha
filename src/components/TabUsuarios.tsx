@@ -671,7 +671,14 @@ export default function TabUsuarios() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground truncate">{u.nome}</p>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${tipoColor(u.tipo)}`}>{tipoLabel(u.tipo)}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${tipoColor(u.tipo)}`}>{tipoLabel(u.tipo)}</span>
+                    {u.municipio_id && (
+                      <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                        <MapPin size={8} />{municipios.find(m => m.id === u.municipio_id)?.nome || ''}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button onClick={() => setViewingModules(u)}
