@@ -55,6 +55,8 @@ interface Props {
 export default function TabEleitores({ refreshKey, onSaved, viewOnly }: Props) {
   const { usuario, isAdmin, tipoUsuario, municipioId: authMunicipioId } = useAuth();
   const { cidadeAtiva, isTodasCidades } = useCidade();
+  const { data: cachedData, isLoading: cacheLoading } = useEleitores();
+  const invalidarCadastros = useInvalidarCadastros();
   const [mode, setMode] = useState<'list' | 'form' | 'detail'>('list');
   const [data, setData] = useState<EleitorRow[]>([]);
   const [loading, setLoading] = useState(true);
