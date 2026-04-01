@@ -318,210 +318,86 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
               {/* Expanded details */}
               {expandedId === `${c.tipo}-${c.id}` && (
                 <div className="mt-3 pt-3 border-t border-border space-y-2.5">
-                  {/* Contato */}
-                  <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Contato</p>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {c.cpf && (
-                        <div className="flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <CreditCard size={11} className="text-muted-foreground shrink-0" />
-                          <span className="truncate">CPF: {formatCPF(c.cpf)}</span>
-                        </div>
-                      )}
-                      {c.whatsapp && (
-                        <div className="flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <MessageCircle size={11} className="text-muted-foreground shrink-0" />
-                          <span className="truncate">{c.whatsapp}</span>
-                        </div>
-                      )}
-                      {c.email && (
-                        <div className="flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <Mail size={11} className="text-muted-foreground shrink-0" />
-                          <span className="truncate">{c.email}</span>
-                        </div>
-                      )}
-                      {(c.instagram || c.facebook) && (
-                        <div className="flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <Globe size={11} className="text-muted-foreground shrink-0" />
-                          <span className="truncate">{c.instagram || c.facebook}</span>
-                        </div>
-                      )}
-                    </div>
-                    {!c.cpf && !c.whatsapp && !c.email && !c.instagram && !c.facebook && (
-                      <p className="text-[10px] text-muted-foreground/50 italic">Nenhum contato cadastrado</p>
-                    )}
-                  </div>
-
-                  {/* Dados eleitorais */}
-                  <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Dados Eleitorais</p>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {c.titulo_eleitor && (
-                        <div className="flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <FileText size={11} className="text-muted-foreground shrink-0" />
-                          <span>Título: {c.titulo_eleitor}</span>
-                        </div>
-                      )}
-                      {c.situacao_titulo && (
-                        <div className="flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <FileText size={11} className="text-muted-foreground shrink-0" />
-                          <span>Situação: {c.situacao_titulo}</span>
-                        </div>
-                      )}
-                      {c.zona_eleitoral && (
-                        <div className="flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <MapPin size={11} className="text-muted-foreground shrink-0" />
-                          <span>Zona: {c.zona_eleitoral}</span>
-                        </div>
-                      )}
-                      {c.secao_eleitoral && (
-                        <div className="flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <MapPin size={11} className="text-muted-foreground shrink-0" />
-                          <span>Seção: {c.secao_eleitoral}</span>
-                        </div>
-                      )}
-                      {c.colegio_eleitoral && (
-                        <div className="col-span-2 flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <MapPin size={11} className="text-muted-foreground shrink-0" />
-                          <span className="truncate">Colégio: {c.colegio_eleitoral}</span>
-                        </div>
-                      )}
-                      {c.endereco_colegio && (
-                        <div className="col-span-2 flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <MapPin size={11} className="text-muted-foreground shrink-0" />
-                          <span className="truncate">End. Colégio: {c.endereco_colegio}</span>
-                        </div>
-                      )}
-                      {c.municipio_eleitoral && (
-                        <div className="flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <MapPin size={11} className="text-muted-foreground shrink-0" />
-                          <span className="truncate">Município: {c.municipio_eleitoral}</span>
-                        </div>
-                      )}
-                      {c.uf_eleitoral && (
-                        <div className="flex items-center gap-1.5 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                          <MapPin size={11} className="text-muted-foreground shrink-0" />
-                          <span>UF: {c.uf_eleitoral}</span>
-                        </div>
-                      )}
-                    </div>
-                    {!c.titulo_eleitor && !c.zona_eleitoral && !c.secao_eleitoral && !c.colegio_eleitoral && !c.municipio_eleitoral && (
-                      <p className="text-[10px] text-muted-foreground/50 italic">Nenhum dado eleitoral</p>
-                    )}
-                  </div>
-
-                  {/* Dados específicos de Liderança */}
-                  {c.tipo === 'lideranca' && (
-                    <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Dados da Liderança</p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {c.tipo_lideranca && (
-                          <div className="text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Tipo:</span> {c.tipo_lideranca}
-                          </div>
-                        )}
-                        {c.nivel && (
-                          <div className="text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Nível:</span> {c.nivel}
-                          </div>
-                        )}
-                        {c.nivel_comprometimento && (
-                          <div className="text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Comprometimento:</span> {c.nivel_comprometimento}
-                          </div>
-                        )}
-                        {c.apoiadores_estimados && (
-                          <div className="text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Apoiadores:</span> {c.apoiadores_estimados}
-                          </div>
-                        )}
-                        {c.meta_votos && (
-                          <div className="text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Meta votos:</span> {c.meta_votos}
-                          </div>
-                        )}
-                        {c.regiao && (
-                          <div className="col-span-2 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Região:</span> {c.regiao}
-                          </div>
-                        )}
-                        {c.bairros_influencia && (
-                          <div className="col-span-2 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Bairros:</span> {c.bairros_influencia}
-                          </div>
-                        )}
-                        {c.comunidades_influencia && (
-                          <div className="col-span-2 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Comunidades:</span> {c.comunidades_influencia}
-                          </div>
-                        )}
+                  {(() => {
+                    const Field = ({ label, value, span2 }: { label: string; value: string | number | null | undefined; span2?: boolean }) => (
+                      <div className={`text-xs bg-muted/40 rounded-lg px-2.5 py-1.5 ${span2 ? 'col-span-2' : ''}`}>
+                        <span className="text-muted-foreground">{label}:</span>{' '}
+                        <span className={value ? 'text-foreground' : 'text-muted-foreground/50 italic'}>{value || '—'}</span>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Dados específicos de Fiscal */}
-                  {c.tipo === 'fiscal' && (c.zona_fiscal || c.secao_fiscal || c.colegio_fiscal) && (
-                    <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Dados de Fiscalização</p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {c.colegio_fiscal && (
-                          <div className="col-span-2 text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Colégio:</span> {c.colegio_fiscal}
+                    );
+                    return (
+                      <>
+                        <div>
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Contato</p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Field label="CPF" value={c.cpf ? formatCPF(c.cpf) : null} />
+                            <Field label="WhatsApp" value={c.whatsapp} />
+                            <Field label="E-mail" value={c.email} />
+                            <Field label="Rede social" value={c.instagram || c.facebook} />
                           </div>
-                        )}
-                        {c.zona_fiscal && (
-                          <div className="text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Zona fiscal:</span> {c.zona_fiscal}
-                          </div>
-                        )}
-                        {c.secao_fiscal && (
-                          <div className="text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Seção fiscal:</span> {c.secao_fiscal}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Dados específicos de Eleitor */}
-                  {c.tipo === 'eleitor' && (c.compromisso_voto || c.lideranca_nome || c.fiscal_nome) && (
-                    <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Vínculo do Eleitor</p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {c.compromisso_voto && (
-                          <div className="text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Compromisso:</span> {c.compromisso_voto}
-                          </div>
-                        )}
-                        {c.lideranca_nome && (
-                          <div className="text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Liderança:</span> {c.lideranca_nome}
-                          </div>
-                        )}
-                        {c.fiscal_nome && (
-                          <div className="text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                            <span className="text-muted-foreground">Fiscal:</span> {c.fiscal_nome}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Origem e observações */}
-                  {(c.origem_captacao || c.observacoes) && (
-                    <div>
-                      {c.origem_captacao && (
-                        <div className="text-xs text-foreground bg-muted/40 rounded-lg px-2.5 py-1.5 mb-1.5">
-                          <span className="text-muted-foreground">Origem:</span> {c.origem_captacao}
                         </div>
-                      )}
-                      {c.observacoes && (
-                        <div className="bg-muted/30 rounded-lg px-2.5 py-2 text-xs text-muted-foreground italic">
-                          "{c.observacoes}"
+                        <div>
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Dados Eleitorais</p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Field label="Título" value={c.titulo_eleitor} />
+                            <Field label="Zona" value={c.zona_eleitoral} />
+                            <Field label="Seção" value={c.secao_eleitoral} />
+                            <Field label="Município" value={c.municipio_eleitoral} />
+                            <Field label="UF" value={c.uf_eleitoral} />
+                            <Field label="Colégio" value={c.colegio_eleitoral} span2 />
+                            <Field label="End. colégio" value={c.endereco_colegio} span2 />
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  )}
+                        {c.tipo === 'lideranca' && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Dados da Liderança</p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <Field label="Tipo" value={c.tipo_lideranca} />
+                              <Field label="Nível" value={c.nivel} />
+                              <Field label="Comprometimento" value={c.nivel_comprometimento} />
+                              <Field label="Apoiadores" value={c.apoiadores_estimados} />
+                              <Field label="Meta votos" value={c.meta_votos} />
+                              <Field label="Região" value={c.regiao} />
+                              <Field label="Bairros" value={c.bairros_influencia} span2 />
+                              <Field label="Comunidades" value={c.comunidades_influencia} span2 />
+                            </div>
+                          </div>
+                        )}
+                        {c.tipo === 'fiscal' && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Dados de Fiscalização</p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <Field label="Colégio" value={c.colegio_fiscal} span2 />
+                              <Field label="Zona fiscal" value={c.zona_fiscal} />
+                              <Field label="Seção fiscal" value={c.secao_fiscal} />
+                            </div>
+                          </div>
+                        )}
+                        {c.tipo === 'eleitor' && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Vínculo do Eleitor</p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <Field label="Compromisso" value={c.compromisso_voto} />
+                              <Field label="Liderança" value={c.lideranca_nome} />
+                              <Field label="Fiscal" value={c.fiscal_nome} />
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Outros</p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Field label="Origem" value={c.origem_captacao} />
+                            <Field label="Cadastrado por" value={c.cadastrado_por_nome} />
+                          </div>
+                          {c.observacoes && (
+                            <div className="bg-muted/30 rounded-lg px-2.5 py-2 text-xs text-muted-foreground italic mt-1.5">
+                              "{c.observacoes}"
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
