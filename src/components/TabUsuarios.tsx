@@ -113,11 +113,17 @@ export default function TabUsuarios() {
     return suplentes.filter(s => s.nome.toLowerCase().includes(q));
   }, [suplentes, search]);
 
+  const [filtroTipo, setFiltroTipo] = useState<string>('todos');
+
   const filteredUsuarios = useMemo(() => {
-    if (!search) return usuarios;
-    const q = search.toLowerCase();
-    return usuarios.filter(u => u.nome.toLowerCase().includes(q));
-  }, [usuarios, search]);
+    let list = usuarios;
+    if (filtroTipo !== 'todos') list = list.filter(u => u.tipo === filtroTipo);
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(u => u.nome.toLowerCase().includes(q));
+    }
+    return list;
+  }, [usuarios, search, filtroTipo]);
 
   // Search results for linking suplente/liderança in avulso form
   const linkSuplentesFiltered = useMemo(() => {
