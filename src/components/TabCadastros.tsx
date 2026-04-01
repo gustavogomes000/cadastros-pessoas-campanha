@@ -59,9 +59,11 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
 
   const isSuperAdmin = tipoUsuario === 'super_admin';
 
-  const fetchAll = useCallback(async () => {
+  const PAGE_SIZE = 20;
+
+  const fetchAll = useCallback(async (reset = true) => {
     if (!usuario) return;
-    setLoading(true);
+    if (reset) { setLoading(true); paginaRef.current = 0; } else { setCarregandoMais(true); }
     const results: CadastroUnificado[] = [];
 
     const filtroMunicipioId = (tipoUsuario === 'super_admin' || tipoUsuario === 'coordenador')
