@@ -32,6 +32,7 @@ interface FiscalItem {
 interface EleitorItem {
   id: string;
   compromisso_voto: string | null;
+  origem_captacao: string | null;
   pessoas: { nome: string; telefone: string | null; whatsapp: string | null } | null;
 }
 
