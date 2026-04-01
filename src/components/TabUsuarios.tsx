@@ -63,6 +63,8 @@ export default function TabUsuarios() {
   const [tipoUsuario, setTipoUsuario] = useState<string>('suplente');
   const [superiorId, setSuperiorId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [cidadeSelecionada, setCidadeSelecionada] = useState<string>('');
+  const [cidadeErro, setCidadeErro] = useState('');
 
   // Avulso: link to suplente/liderança
   const [linkedSuplenteId, setLinkedSuplenteId] = useState<string | null>(null);
