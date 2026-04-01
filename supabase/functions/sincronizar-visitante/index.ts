@@ -73,8 +73,15 @@ Deno.serve(async (req) => {
         if (!hierSup) {
           return jsonResp({ erro: 'Indicador (suplente) não encontrado' }, 400);
         }
-        // Use the hierarquia user's suplente_id (FK to suplentes table) — may be null
-        validatedSuplenteId = hierSup.suplente_id || null;
+        // Validate that suplente_id actually exists in suplentes table before using as FK
+        if (hierSup.suplente_id) {
+          const { data: supCheck } = await supabaseAdmin
+            .from('suplentes')
+            .select('id')
+            .eq('id', hierSup.suplente_id)
+            .maybeSingle();
+          validatedSuplenteId = supCheck ? supCheck.id : null;
+        }
         cadastradoPor = hierSup.id;
         municipioId = hierSup.municipio_id;
       }
