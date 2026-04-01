@@ -307,7 +307,7 @@ export default function TabLiderancas({ refreshKey, onSaved, viewOnly }: Props) 
     toast({ title: 'Liderança descartada' });
     setSelected(null);
     setMode('list');
-    fetchData(true);
+    invalidarCadastros();
   };
 
   const inputCls = "w-full h-11 px-3 bg-card border border-border rounded-xl text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30";
