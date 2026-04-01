@@ -204,6 +204,9 @@ export default function TabRede() {
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold text-foreground truncate">{f.pessoas?.nome || '—'}</span>
                           <StatusBadge status={f.status} />
+                          {f.origem_captacao === 'visita_comite' && (
+                            <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400">Visita</span>
+                          )}
                         </div>
                         <p className="text-[10px] text-muted-foreground">
                           {f.zona_fiscal ? `Z${f.zona_fiscal}` : ''}{f.secao_fiscal ? ` S${f.secao_fiscal}` : ''}
