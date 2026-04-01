@@ -52,6 +52,8 @@ export default function TabCriarUsuarios() {
   const [showSenha, setShowSenha] = useState(false);
   const [superiorId, setSuperiorId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [cidadeSelecionada, setCidadeSelecionada] = useState<string>('');
+  const [cidadeErro, setCidadeErro] = useState('');
 
   useEffect(() => {
     fetchAll();
