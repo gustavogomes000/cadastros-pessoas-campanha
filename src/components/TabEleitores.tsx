@@ -245,12 +245,19 @@ export default function TabEleitores({ refreshKey, onSaved, viewOnly }: Props) {
       setCpfStatus('idle');
       setCpfNomePessoa('');
       setMode('list');
-      fetchData();
+      fetchData(true);
       onSaved?.();
     } catch (err: any) {
       toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' });
     } finally { setSaving(false); }
   };
+
+  const QUERY_DETALHE_ELE = 'id, compromisso_voto, lideranca_id, fiscal_id, cadastrado_por, observacoes, criado_em, municipio_id, pessoas(*), liderancas:lideranca_id(id, pessoas(nome)), fiscais:fiscal_id(id, pessoas(nome))';
+
+  const fetchDetalhe = useCallback(async (id: string) => {
+    const { data } = await (supabase as any).from('possiveis_eleitores').select(QUERY_DETALHE_ELE).eq('id', id).single();
+    if (data) setSelected(data as unknown as EleitorRow);
+  }, []);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este registro?')) return;
@@ -258,7 +265,7 @@ export default function TabEleitores({ refreshKey, onSaved, viewOnly }: Props) {
     toast({ title: 'Registro excluído' });
     setSelected(null);
     setMode('list');
-    fetchData();
+    fetchData(true);
   };
 
   const filtered = data.filter(e => {
