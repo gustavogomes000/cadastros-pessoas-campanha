@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCidade } from '@/contexts/CidadeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useLiderancas, useFiscais, useEleitores, useUsuarios } from '@/hooks/useDataCache';
 import {
   ArrowLeft, Users, Shield, Target, Search,
   ChevronDown, ChevronUp, Loader2, Download, Trophy,
