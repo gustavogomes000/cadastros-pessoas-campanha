@@ -96,7 +96,7 @@ export default function TabFiscais({ refreshKey, onSaved, viewOnly }: Props) {
   const update = useCallback((field: string, value: string) => setForm(f => ({ ...f, [field]: value })), []);
 
   const PAGE_SIZE = 20;
-  const QUERY_LISTA_FISC = 'id, status, colegio_eleitoral, zona_fiscal, secao_fiscal, cadastrado_por, criado_em, municipio_id, pessoas(nome, cpf, telefone, whatsapp)';
+  const QUERY_LISTA_FISC = 'id, status, colegio_eleitoral, zona_fiscal, secao_fiscal, cadastrado_por, criado_em, municipio_id, origem_captacao, pessoas(nome, cpf, telefone, whatsapp)';
 
   const fetchData = useCallback(async (reset = true) => {
     if (!usuario) return;
