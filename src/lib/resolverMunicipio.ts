@@ -8,7 +8,7 @@ export async function resolverMunicipioId(
 ): Promise<string | null> {
   if (!suplenteId) return null;
 
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('suplente_municipio')
     .select('municipio_id')
     .eq('suplente_id', suplenteId)
@@ -25,7 +25,7 @@ export async function buscarNomeMunicipio(
 ): Promise<string | null> {
   if (!municipioId) return null;
 
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('municipios')
     .select('nome')
     .eq('id', municipioId)

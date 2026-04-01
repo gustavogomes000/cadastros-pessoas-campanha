@@ -25,41 +25,35 @@ export function CidadeProvider({ children }: { children: ReactNode }) {
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [cidadeAtiva, setCidadeAtivaState] = useState<{ id: string; nome: string } | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [initialized, setInitialized] = useState(false);
 
   const carregarMunicipios = useCallback(async () => {
     try {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from('municipios')
         .select('id, nome, uf')
         .eq('ativo', true)
         .order('nome');
-      setMunicipios(data || []);
-      return data || [];
+      const result = (data || []) as Municipio[];
+      setMunicipios(result);
     } catch {
-      return [];
+      // Table may not exist yet
+      setMunicipios([]);
     }
   }, []);
 
-  // Initialize
   useEffect(() => {
     (async () => {
-      const muns = await carregarMunicipios();
+      await carregarMunicipios();
 
-      // Restore from localStorage
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          // Verify it still exists
-          if (parsed === null || muns.some(m => m.id === parsed.id)) {
-            setCidadeAtivaState(parsed);
-          }
+          setCidadeAtivaState(parsed);
         }
       } catch {}
 
       setCarregando(false);
-      setInitialized(true);
     })();
   }, [carregarMunicipios]);
 

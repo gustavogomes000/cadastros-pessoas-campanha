@@ -14,23 +14,23 @@ export default function SeletorCidade() {
 
   useEffect(() => {
     if (!aberto) return;
-    // Fetch counts per municipality
     (async () => {
       const counts: Contagens = {};
 
-      const [lidRes, eleRes] = await Promise.all([
-        supabase.from('liderancas').select('municipio_id'),
-        supabase.from('possiveis_eleitores').select('municipio_id'),
+      const [lidRes, eleRes, supMunRes] = await Promise.all([
+        supabase.from('liderancas').select('id, suplente_id'),
+        supabase.from('possiveis_eleitores').select('id, suplente_id'),
+        (supabase as any).from('suplente_municipio').select('suplente_id, municipio_id'),
       ]);
 
-      // Count suplentes per municipality from suplente_municipio
-      const { data: supMun } = await supabase.from('suplente_municipio').select('municipio_id');
+      const supMunData = (supMunRes.data || []) as { suplente_id: string; municipio_id: string }[];
 
       for (const m of municipios) {
+        const supIds = supMunData.filter(s => s.municipio_id === m.id).map(s => s.suplente_id);
         counts[m.id] = {
-          suplentes: (supMun || []).filter(s => s.municipio_id === m.id).length,
-          liderancas: (lidRes.data || []).filter((l: any) => l.municipio_id === m.id).length,
-          eleitores: (eleRes.data || []).filter((e: any) => e.municipio_id === m.id).length,
+          suplentes: supIds.length,
+          liderancas: (lidRes.data || []).filter((l: any) => supIds.includes(l.suplente_id)).length,
+          eleitores: (eleRes.data || []).filter((e: any) => supIds.includes(e.suplente_id)).length,
         };
       }
 
@@ -42,7 +42,6 @@ export default function SeletorCidade() {
 
   return (
     <>
-      {/* Trigger button */}
       <button
         onClick={() => setAberto(true)}
         className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 border border-border rounded-xl text-xs font-medium text-foreground active:scale-95 transition-all"
@@ -52,17 +51,14 @@ export default function SeletorCidade() {
         <ChevronDown size={12} className="text-muted-foreground" />
       </button>
 
-      {/* BottomSheet overlay */}
       {aberto && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setAberto(false)} />
           <div className="relative w-full max-w-lg bg-card rounded-t-2xl border-t border-border animate-in slide-in-from-bottom duration-200 max-h-[70vh] overflow-y-auto">
-            {/* Handle */}
             <div className="flex justify-center pt-2 pb-1">
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
             </div>
 
-            {/* Header */}
             <div className="flex items-center justify-between px-4 pb-3">
               <h3 className="text-sm font-bold text-foreground">🏙️ Selecionar Cidade</h3>
               <button onClick={() => setAberto(false)} className="p-1 rounded-lg hover:bg-muted">
@@ -70,9 +66,7 @@ export default function SeletorCidade() {
               </button>
             </div>
 
-            {/* Options */}
             <div className="px-4 pb-6 space-y-1.5">
-              {/* Todas as cidades */}
               <button
                 onClick={() => { setCidadeAtiva(null); setAberto(false); }}
                 className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all active:scale-[0.98] ${
@@ -84,12 +78,11 @@ export default function SeletorCidade() {
                 </div>
                 <div className="flex-1 text-left min-w-0">
                   <p className="text-sm font-semibold text-foreground">Todas as cidades</p>
-                  <p className="text-[10px] text-muted-foreground">Visão consolidada de todos os municípios</p>
+                  <p className="text-[10px] text-muted-foreground">Visão consolidada</p>
                 </div>
                 {isTodasCidades && <Check size={16} className="text-primary shrink-0" />}
               </button>
 
-              {/* Each municipality */}
               {municipios.map(m => {
                 const selected = cidadeAtiva?.id === m.id;
                 const c = contagens[m.id] || { suplentes: 0, liderancas: 0, eleitores: 0 };
