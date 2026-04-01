@@ -559,7 +559,6 @@ export default function TabEleitores({ refreshKey, onSaved, viewOnly }: Props) {
             </button>
           ))}
           {/* All data loaded from cache */}
-          )}
         </div>
       )}
     </div>
