@@ -313,6 +313,7 @@ export default function TabPerfil() {
         senha: senhaNova.trim(),
         tipo: tipoNovo,
         superior_id: usuario?.id || null,
+        municipio_id: createCidade,
       };
       if (createMode === 'suplente' && selectedExternalId) {
         body.suplente_id = selectedExternalId;
