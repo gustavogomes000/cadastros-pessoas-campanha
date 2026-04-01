@@ -3,7 +3,7 @@ import { Search, ChevronRight, ArrowLeft, Users, Shield, Eye, User, Phone, Messa
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { maskCPF } from '@/lib/cpf';
-import StatusBadge from '@/components/StatusBadge';
+
 
 interface SuplenteItem {
   id: string;
