@@ -8,7 +8,7 @@ import { resolverLigacaoPolitica } from '@/lib/resolverLigacaoPolitica';
 import { toast } from '@/hooks/use-toast';
 import CampoLigacaoPolitica from '@/components/CampoLigacaoPolitica';
 
-const statusOptions = ['Ativa', 'Potencial', 'Em negociação', 'Fraca', 'Descartada'];
+
 const comprometimentos = ['Alto', 'Médio', 'Baixo'];
 const situacoesTitulo = ['Regular', 'Cancelado', 'Suspenso', 'Não informado'];
 
