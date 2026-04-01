@@ -184,6 +184,7 @@ export default function TabPerfil() {
   const [selectedModulos, setSelectedModulos] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [externalSearch, setExternalSearch] = useState('');
+  const [createCidade, setCreateCidade] = useState('');
 
   // Edit
   const [editUser, setEditUser] = useState<UsuarioItem | null>(null);
@@ -192,6 +193,7 @@ export default function TabPerfil() {
   const [showEditSenha, setShowEditSenha] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editCidade, setEditCidade] = useState('');
 
   // Credentials modal after creation
   const [credenciais, setCredenciais] = useState<{ nome: string; senha: string; id: string; auth_user_id: string; tipo: string } | null>(null);
