@@ -9,6 +9,7 @@ import LoadingScreen from "@/components/LoadingScreen";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import AdminDashboard from "./pages/AdminDashboard";
+import CadastrosExternos from "./pages/CadastrosExternos";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ function AppRoutes() {
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
       <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
+      <Route path="/admin/externos" element={<PrivateRoute><CadastrosExternos /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -95,11 +95,26 @@ export default function AdminDashboard() {
 
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [expandedTipo, setExpandedTipo] = useState<string | null>(null);
+  const [totalVisitas, setTotalVisitas] = useState(0);
 
   useEffect(() => {
     if (!isAdmin) { navigate('/'); return; }
     fetchData();
+    fetchVisitas();
   }, [isAdmin, cidadeAtiva]);
+
+  const fetchVisitas = async () => {
+    const ontem = new Date(Date.now() - 86400000).toISOString();
+    const [{ count: cL }, { count: cF }, { count: cE }] = await Promise.all([
+      (supabase as any).from('liderancas').select('*', { count: 'exact', head: true })
+        .eq('origem_captacao', 'visita_comite').gte('criado_em', ontem),
+      (supabase as any).from('fiscais').select('*', { count: 'exact', head: true })
+        .eq('origem_captacao', 'visita_comite').gte('criado_em', ontem),
+      (supabase as any).from('possiveis_eleitores').select('*', { count: 'exact', head: true })
+        .eq('origem_captacao', 'visita_comite').gte('criado_em', ontem),
+    ]);
+    setTotalVisitas((cL ?? 0) + (cF ?? 0) + (cE ?? 0));
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -321,6 +336,25 @@ export default function AdminDashboard() {
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-4 space-y-4">
+
+        {/* ── Card Cadastros por Visita ── */}
+        <button onClick={() => navigate('/admin/externos')}
+          className="w-full flex items-center justify-between p-4 rounded-xl border border-border bg-card active:scale-[0.98] transition-transform">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <UserCheck size={18} className="text-blue-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold">Cadastros por Visita</p>
+              <p className="text-[11px] text-muted-foreground">Via visita ao comitê</p>
+            </div>
+          </div>
+          {totalVisitas > 0 && (
+            <span className="bg-blue-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full min-w-[24px] text-center">
+              {totalVisitas}
+            </span>
+          )}
+        </button>
 
         {/* ── Navegação de vistas ── */}
         <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
