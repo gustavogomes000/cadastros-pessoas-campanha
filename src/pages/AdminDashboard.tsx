@@ -528,7 +528,7 @@ export default function AdminDashboard() {
                   if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
                   toast({ title: `✅ ${nome} adicionada!` });
                   input.value = '';
-                  fetchData();
+                  // Data will refresh automatically via React Query
                 }}
                 className="h-10 px-4 gradient-primary text-white rounded-xl text-sm font-semibold flex items-center gap-1 active:scale-95">
                 <Plus size={14} /> Adicionar
