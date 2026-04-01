@@ -1,0 +1,97 @@
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Municipio {
+  id: string;
+  nome: string;
+  uf: string;
+}
+
+interface CidadeContextType {
+  cidadeAtiva: { id: string; nome: string } | null;
+  setCidadeAtiva: (cidade: { id: string; nome: string } | null) => void;
+  municipios: Municipio[];
+  isTodasCidades: boolean;
+  carregando: boolean;
+  recarregarMunicipios: () => Promise<void>;
+  nomeMunicipioPorId: (id: string | null) => string | null;
+}
+
+const CidadeContext = createContext<CidadeContextType | undefined>(undefined);
+
+const STORAGE_KEY = 'campanha-cidade-ativa';
+
+export function CidadeProvider({ children }: { children: ReactNode }) {
+  const [municipios, setMunicipios] = useState<Municipio[]>([]);
+  const [cidadeAtiva, setCidadeAtivaState] = useState<{ id: string; nome: string } | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [initialized, setInitialized] = useState(false);
+
+  const carregarMunicipios = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('municipios')
+        .select('id, nome, uf')
+        .eq('ativo', true)
+        .order('nome');
+      setMunicipios(data || []);
+      return data || [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // Initialize
+  useEffect(() => {
+    (async () => {
+      const muns = await carregarMunicipios();
+
+      // Restore from localStorage
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          // Verify it still exists
+          if (parsed === null || muns.some(m => m.id === parsed.id)) {
+            setCidadeAtivaState(parsed);
+          }
+        }
+      } catch {}
+
+      setCarregando(false);
+      setInitialized(true);
+    })();
+  }, [carregarMunicipios]);
+
+  const setCidadeAtiva = useCallback((cidade: { id: string; nome: string } | null) => {
+    setCidadeAtivaState(cidade);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cidade));
+    } catch {}
+  }, []);
+
+  const nomeMunicipioPorId = useCallback((id: string | null): string | null => {
+    if (!id) return null;
+    return municipios.find(m => m.id === id)?.nome ?? null;
+  }, [municipios]);
+
+  return (
+    <CidadeContext.Provider value={{
+      cidadeAtiva,
+      setCidadeAtiva,
+      municipios,
+      isTodasCidades: cidadeAtiva === null,
+      carregando,
+      recarregarMunicipios: carregarMunicipios,
+      nomeMunicipioPorId,
+    }}>
+      {children}
+    </CidadeContext.Provider>
+  );
+}
+
+export function useCidade() {
+  const ctx = useContext(CidadeContext);
+  if (!ctx) throw new Error('useCidade deve ser usado dentro de CidadeProvider');
+  return ctx;
+}
