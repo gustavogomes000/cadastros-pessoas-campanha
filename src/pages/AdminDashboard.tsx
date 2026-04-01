@@ -73,7 +73,7 @@ export default function AdminDashboard() {
   const [_loading, setLoading] = useState(true);
   const [periodo, setPeriodo] = useState<Periodo>('total');
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos');
-  const [vistaAtiva, setVistaAtiva] = useState<VistaAtiva>('usuarios');
+  const [vistaAtiva, setVistaAtiva] = useState<VistaAtiva>('ranking');
   const [searchTerm, setSearchTerm] = useState('');
   const [exporting, setExporting] = useState(false);
   const [tipoUsuarioFiltro, setTipoUsuarioFiltro] = useState<TipoUsuarioFiltro>('todos');
@@ -194,8 +194,8 @@ export default function AdminDashboard() {
   }, [expandedUser, filteredL, filteredF, filteredE]);
 
   const vistaLabels: { id: VistaAtiva; icon: typeof BarChart3; label: string }[] = [
-    { id: 'usuarios', icon: UserCog, label: 'Usuários' },
     { id: 'ranking', icon: Trophy, label: 'Ranking' },
+    { id: 'usuarios', icon: UserCog, label: 'Usuários' },
     { id: 'registros', icon: Eye, label: 'Registros' },
     ...(municipios.length > 1 ? [{ id: 'cidades' as VistaAtiva, icon: Building2, label: 'Cidades' }] : []),
   ];
