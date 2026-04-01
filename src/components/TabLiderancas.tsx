@@ -381,12 +381,7 @@ export default function TabLiderancas({ refreshKey, onSaved, viewOnly }: Props) 
           <Info label="Possíveis votos" value={l.apoiadores_estimados?.toString()} />
           <Info label="Quantos votos pode trazer" value={l.meta_votos?.toString()} />
           <Info label="Comprometimento" value={l.nivel_comprometimento} />
-          {l.observacoes && (
-            <div className="pt-2">
-              <p className="text-[11px] text-muted-foreground mb-1">Observações</p>
-              <p className="text-sm text-foreground bg-muted/50 rounded-lg p-3">{l.observacoes}</p>
-            </div>
-          )}
+          <Info label="Observações" value={l.observacoes} />
         </div>
         <div className="space-y-2">
           {isAdmin && l.status !== 'Descartada' && (
