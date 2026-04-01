@@ -652,6 +652,9 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* ══════════ LIDERANÇAS EXTERNAS ══════════ */}
+        {vistaAtiva === 'externas' && <TabLiderancasExternas />}
+
       </div>
     </div>
   );
