@@ -506,7 +506,6 @@ export default function TabLiderancas({ refreshKey, onSaved, viewOnly }: Props) 
         <div className="grid grid-cols-3 gap-2">
           {[
             { label: 'Total', value: data.length },
-            { label: 'Ativas', value: data.filter(l => l.status === 'Ativa').length },
             { label: 'Apoiadores', value: data.reduce((s, l) => s + (l.apoiadores_estimados || 0), 0) },
           ].map(s => (
             <div key={s.label} className="bg-card rounded-xl border border-border p-2 text-center">
