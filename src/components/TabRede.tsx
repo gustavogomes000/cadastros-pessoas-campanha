@@ -192,16 +192,18 @@ export default function TabRede() {
           e.criado_em ? new Date(e.criado_em).toLocaleDateString('pt-BR') : '', '']);
       }
 
-      // Generate CSV
-      const csvContent = allRows.map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-      const BOM = '\uFEFF';
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `rede_${selectedSuplente.nome.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      // Generate Excel
+      const XLSX = await import('xlsx');
+      const ws = XLSX.utils.aoa_to_sheet(allRows);
+      const colWidths = headers.map((h, i) => {
+        let max = h.length;
+        allRows.forEach(row => { const len = (row[i] || '').length; if (len > max) max = len; });
+        return { wch: Math.min(max + 2, 40) };
+      });
+      ws['!cols'] = colWidths;
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Rede');
+      XLSX.writeFile(wb, `rede_${selectedSuplente.nome.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (err) {
       console.error('Erro ao exportar:', err);
     }
