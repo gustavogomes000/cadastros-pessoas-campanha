@@ -440,7 +440,6 @@ export default function TabFiscais({ refreshKey, onSaved, viewOnly }: Props) {
             </button>
           ))}
           {/* All data loaded from cache */}
-          )}
         </div>
       )}
     </div>
