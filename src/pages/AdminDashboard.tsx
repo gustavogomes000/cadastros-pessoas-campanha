@@ -8,10 +8,11 @@ import { useLiderancas, useFiscais, useEleitores, useUsuarios } from '@/hooks/us
 import {
   ArrowLeft, Users, Shield, Target, Search,
   ChevronDown, ChevronUp, Loader2, Download, Trophy,
-  BarChart3, UserCog, Eye, Building2, Plus, MapPin, Tag
+  BarChart3, UserCog, Eye, Building2, Plus, MapPin, Tag, ExternalLink
 } from 'lucide-react';
 import { exportAllCadastros } from '@/lib/exportXlsx';
 import SeletorCidade from '@/components/SeletorCidade';
+import TabLiderancasExternas from '@/components/TabLiderancasExternas';
 
 /* ── types ── */
 interface Pessoa {
@@ -65,7 +66,7 @@ interface HierarquiaUsuario {
 /* ── constants ── */
 type Periodo = 'hoje' | 'semana' | 'mes' | 'total';
 type TipoFiltro = 'todos' | 'lideranca' | 'fiscal' | 'eleitor';
-type VistaAtiva = 'usuarios' | 'ranking' | 'registros' | 'cidades';
+type VistaAtiva = 'usuarios' | 'ranking' | 'registros' | 'cidades' | 'externas';
 type TipoUsuarioFiltro = 'todos' | 'suplente' | 'lideranca' | 'fiscal' | 'coordenador';
 
 const periodoLabels: Record<Periodo, string> = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês', total: 'Total' };
@@ -209,6 +210,7 @@ export default function AdminDashboard() {
     { id: 'ranking', icon: Trophy, label: 'Ranking' },
     { id: 'usuarios', icon: UserCog, label: 'Usuários' },
     { id: 'registros', icon: Eye, label: 'Registros' },
+    { id: 'externas', icon: ExternalLink, label: 'Externas' },
     ...(municipios.length > 1 ? [{ id: 'cidades' as VistaAtiva, icon: Building2, label: 'Cidades' }] : []),
   ];
 
@@ -649,6 +651,9 @@ export default function AdminDashboard() {
             })}
           </div>
         )}
+
+        {/* ══════════ LIDERANÇAS EXTERNAS ══════════ */}
+        {vistaAtiva === 'externas' && <TabLiderancasExternas />}
 
       </div>
     </div>
