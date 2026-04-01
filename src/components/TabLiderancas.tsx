@@ -103,18 +103,30 @@ export default function TabLiderancas({ refreshKey, onSaved, viewOnly }: Props) 
     });
   }, [usuario]);
 
-  const fetchData = useCallback(async () => {
+  const PAGE_SIZE = 20;
+  const QUERY_LISTA = 'id, status, tipo_lideranca, zona_atuacao, apoiadores_estimados, cadastrado_por, criado_em, municipio_id, pessoas(nome, telefone, whatsapp, cpf), hierarquia_usuarios!liderancas_cadastrado_por_fkey(nome)';
+
+  const fetchData = useCallback(async (reset = true) => {
     if (!usuario) return;
-    setLoading(true);
+    if (reset) {
+      setLoading(true);
+      paginaRef.current = 0;
+    } else {
+      setCarregandoMais(true);
+    }
 
     const filtroMunicipioId = (tipoUsuario === 'super_admin' || tipoUsuario === 'coordenador')
       ? (isTodasCidades ? null : cidadeAtiva?.id)
       : authMunicipioId;
 
+    const from = paginaRef.current * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     let query = (supabase as any)
       .from('liderancas')
-      .select('id, status, tipo_lideranca, nivel, zona_atuacao, apoiadores_estimados, cadastrado_por, suplente_id, criado_em, regiao_atuacao, bairros_influencia, comunidades_influencia, origem_captacao, meta_votos, nivel_comprometimento, observacoes, municipio_id, pessoas(*), hierarquia_usuarios!liderancas_cadastrado_por_fkey(nome)')
-      .order('criado_em', { ascending: false });
+      .select(QUERY_LISTA, { count: 'exact' })
+      .order('criado_em', { ascending: false })
+      .range(from, to);
 
     if (filtroMunicipioId) {
       query = query.eq('municipio_id', filtroMunicipioId);
@@ -123,12 +135,21 @@ export default function TabLiderancas({ refreshKey, onSaved, viewOnly }: Props) 
       query = query.eq('cadastrado_por', usuario.id);
     }
 
-    const { data, error } = await query;
-    if (!error && data) setData(data as unknown as LiderancaRow[]);
+    const { data: rows, error } = await query;
+    if (!error && rows) {
+      if (reset) {
+        setData(rows as unknown as LiderancaRow[]);
+      } else {
+        setData(prev => [...prev, ...(rows as unknown as LiderancaRow[])]);
+      }
+      paginaRef.current += 1;
+      setTemMais(rows.length === PAGE_SIZE);
+    }
     setLoading(false);
+    setCarregandoMais(false);
   }, [usuario, tipoUsuario, cidadeAtiva, isTodasCidades, authMunicipioId]);
 
-  useEffect(() => { fetchData(); }, [fetchData, refreshKey]);
+  useEffect(() => { fetchData(true); }, [fetchData, refreshKey]);
 
 
   useEffect(() => {
