@@ -281,6 +281,7 @@ export default function TabPerfil() {
     setShowSenha(false);
     setSelectedModulos(new Set());
     setExternalSearch('');
+    setCreateCidade(municipios.length === 1 ? municipios[0].id : '');
   };
 
   const handleCreate = async () => {
