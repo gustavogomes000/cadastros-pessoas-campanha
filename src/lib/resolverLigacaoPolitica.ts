@@ -119,6 +119,7 @@ export async function resolverLigacaoPolitica(
     // Ensure suplente exists locally
     await sincronizarSuplenteLocal(usuario.suplente_id);
 
+    try {
       const { data: fiscais } = await supabase
         .from('fiscais')
         .select('id, pessoas(nome)')
