@@ -164,7 +164,7 @@ export default function TabPerfil() {
   const [usuarios, setUsuarios] = useState<UsuarioItem[]>([]);
   const [suplentes, setSuplentes] = useState<SuplenteOption[]>([]);
   const [liderancas, setLiderancas] = useState<LiderancaOption[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
 
   // View mode
@@ -194,14 +194,25 @@ export default function TabPerfil() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+
     try {
-      // Load users first (fast, local DB)
-      const usrRes = await supabase.from('hierarquia_usuarios').select('id, nome, tipo, criado_em, suplente_id, auth_user_id').eq('ativo', true).order('nome');
+      const usrRes = await supabase
+        .from('hierarquia_usuarios')
+        .select('id, nome, tipo, criado_em, suplente_id, auth_user_id')
+        .eq('ativo', true)
+        .order('nome')
+        .abortSignal(controller.signal);
+
       setUsuarios((usrRes.data || []) as UsuarioItem[]);
     } catch (err) {
       console.error('Erro ao carregar usuários:', err);
+      setUsuarios([]);
+    } finally {
+      window.clearTimeout(timeoutId);
+      setLoading(false);
     }
-    setLoading(false);
 
     // Load external data in background (slow edge functions - don't block UI)
     supabase.functions.invoke('buscar-suplentes')
@@ -214,7 +225,6 @@ export default function TabPerfil() {
 
   useEffect(() => {
     if (isAdmin) fetchAll();
-    else setLoading(false);
   }, [isAdmin, fetchAll]);
 
   // Suplentes já vinculados
