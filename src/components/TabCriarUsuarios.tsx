@@ -37,6 +37,7 @@ type TabType = 'suplentes' | 'liderancas';
 
 export default function TabCriarUsuarios() {
   const { isAdmin } = useAuth();
+  const { municipios } = useCidade();
   const [tab, setTab] = useState<TabType>('suplentes');
   const [suplentes, setSuplentes] = useState<SuplenteExterno[]>([]);
   const [liderancas, setLiderancas] = useState<LiderancaExterna[]>([]);
