@@ -167,7 +167,7 @@ export function useEleitores(scope: 'own' | 'all' = 'own') {
         .order('criado_em', { ascending: false })
         .limit(500);
 
-      if (filtroMunicipioId) q = q.eq('municipio_id', filtroMunicipioId);
+      if (scope === 'all' && filtroMunicipioId) q = q.eq('municipio_id', filtroMunicipioId);
       q = applyScopeFilter(q, scope, isAdmin, usuario, 'possiveis_eleitores');
 
       const { data, error } = await q;
