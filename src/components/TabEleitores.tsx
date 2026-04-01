@@ -97,32 +97,41 @@ export default function TabEleitores({ refreshKey, onSaved, viewOnly }: Props) {
 
   const update = useCallback((field: string, value: string) => setForm(f => ({ ...f, [field]: value })), []);
 
-  const fetchData = useCallback(async () => {
+  const PAGE_SIZE = 20;
+  const QUERY_LISTA_ELE = 'id, compromisso_voto, lideranca_id, fiscal_id, cadastrado_por, criado_em, municipio_id, pessoas(nome, cpf, telefone, whatsapp), liderancas:lideranca_id(id, pessoas(nome)), fiscais:fiscal_id(id, pessoas(nome))';
+
+  const fetchData = useCallback(async (reset = true) => {
     if (!usuario) return;
-    setLoading(true);
+    if (reset) { setLoading(true); paginaRef.current = 0; } else { setCarregandoMais(true); }
 
     const filtroMunicipioId = (tipoUsuario === 'super_admin' || tipoUsuario === 'coordenador')
       ? (isTodasCidades ? null : cidadeAtiva?.id)
       : authMunicipioId;
 
+    const from = paginaRef.current * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     let query = (supabase as any)
       .from('possiveis_eleitores')
-      .select('id, compromisso_voto, lideranca_id, fiscal_id, cadastrado_por, observacoes, criado_em, municipio_id, pessoas(nome, cpf, telefone, whatsapp, email, instagram, facebook, zona_eleitoral, secao_eleitoral, titulo_eleitor, municipio_eleitoral, uf_eleitoral, colegio_eleitoral, endereco_colegio, situacao_titulo), liderancas:lideranca_id(id, pessoas(nome)), fiscais:fiscal_id(id, pessoas(nome))')
-      .order('criado_em', { ascending: false });
+      .select(QUERY_LISTA_ELE, { count: 'exact' })
+      .order('criado_em', { ascending: false })
+      .range(from, to);
 
-    if (filtroMunicipioId) {
-      query = query.eq('municipio_id', filtroMunicipioId);
-    }
-    if (tipoUsuario !== 'super_admin' && tipoUsuario !== 'coordenador') {
-      query = query.eq('cadastrado_por', usuario.id);
-    }
+    if (filtroMunicipioId) query = query.eq('municipio_id', filtroMunicipioId);
+    if (tipoUsuario !== 'super_admin' && tipoUsuario !== 'coordenador') query = query.eq('cadastrado_por', usuario.id);
 
     const { data: eleitores } = await query;
-    if (eleitores) setData(eleitores as unknown as EleitorRow[]);
+    if (eleitores) {
+      if (reset) setData(eleitores as unknown as EleitorRow[]);
+      else setData(prev => [...prev, ...(eleitores as unknown as EleitorRow[])]);
+      paginaRef.current += 1;
+      setTemMais(eleitores.length === PAGE_SIZE);
+    }
     setLoading(false);
+    setCarregandoMais(false);
   }, [usuario, tipoUsuario, cidadeAtiva, isTodasCidades, authMunicipioId]);
 
-  useEffect(() => { fetchData(); }, [fetchData, refreshKey]);
+  useEffect(() => { fetchData(true); }, [fetchData, refreshKey]);
 
   useEffect(() => {
     supabase.from('liderancas').select('id, pessoas(nome)').eq('status', 'Ativa')
