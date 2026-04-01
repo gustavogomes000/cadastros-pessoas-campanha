@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCidade } from '@/contexts/CidadeContext';
 import { toast } from '@/hooks/use-toast';
 import ModulosUsuario from '@/components/ModulosUsuario';
 import {

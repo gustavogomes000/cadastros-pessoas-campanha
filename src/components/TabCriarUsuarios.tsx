@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCidade } from '@/contexts/CidadeContext';
 import { toast } from '@/hooks/use-toast';
 import {
   Loader2, UserPlus, Users, User, CheckCircle2, Search, Eye, EyeOff,
