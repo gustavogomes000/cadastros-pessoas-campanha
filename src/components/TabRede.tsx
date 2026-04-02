@@ -40,19 +40,6 @@ interface LiderancaItem {
   hierarquia_usuarios: { nome: string } | null;
 }
 
-interface FiscalItem {
-  id: string;
-  status: string;
-  zona_fiscal: string | null;
-  secao_fiscal: string | null;
-  colegio_eleitoral: string | null;
-  observacoes: string | null;
-  origem_captacao: string | null;
-  criado_em: string | null;
-  pessoas: PessoaFull | null;
-  hierarquia_usuarios: { nome: string } | null;
-}
-
 interface EleitorItem {
   id: string;
   compromisso_voto: string | null;
@@ -62,11 +49,10 @@ interface EleitorItem {
   pessoas: PessoaFull | null;
   hierarquia_usuarios: { nome: string } | null;
   liderancas: { id: string; pessoas: { nome: string } | null } | null;
-  fiscais: { id: string; pessoas: { nome: string } | null } | null;
 }
 
 type ViewMode = 'suplentes' | 'detail' | 'record';
-type RecordType = 'lideranca' | 'fiscal' | 'eleitor';
+type RecordType = 'lideranca' | 'eleitor';
 
 const Info = ({ label, value, link }: { label: string; value?: string | null; link?: string }) => {
   if (!value) return null;
