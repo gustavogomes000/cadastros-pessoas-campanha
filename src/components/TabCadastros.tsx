@@ -14,7 +14,7 @@ type TipoFiltro = 'todos' | 'lideranca' | 'eleitor';
 
 interface CadastroUnificado {
   id: string;
-  tipo: 'lideranca' | 'fiscal' | 'eleitor';
+  tipo: 'lideranca' | 'eleitor';
   nome: string;
   cpf: string | null;
   telefone: string | null;
@@ -44,14 +44,9 @@ interface CadastroUnificado {
   meta_votos: number | null;
   nivel_comprometimento: string | null;
   origem_captacao: string | null;
-  // Fiscal specific
-  zona_fiscal: string | null;
-  secao_fiscal: string | null;
-  colegio_fiscal: string | null;
   lideranca_nome: string | null;
   // Eleitor specific
   compromisso_voto: string | null;
-  fiscal_nome: string | null;
 }
 
 const tipoConfig = {
