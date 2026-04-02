@@ -146,12 +146,15 @@ Deno.serve(async (req) => {
     let municipioId: string | null = null;
     let liderancaIdVinculada: string | null = null;
 
-    const { data: hierarquiaDirecta } = await supabaseAdmin
-      .from('hierarquia_usuarios')
-      .select('id, suplente_id, municipio_id')
-      .eq('id', indId)
-      .eq('ativo', true)
-      .maybeSingle();
+    if (indId) {
+      const { data: hierarquiaDirecta } = await supabaseAdmin
+        .from('hierarquia_usuarios')
+        .select('id, suplente_id, municipio_id')
+        .eq('id', indId)
+        .eq('ativo', true)
+        .maybeSingle();
+
+      if (hierarquiaDirecta) {
 
     if (hierarquiaDirecta) {
       cadastradoPorId = hierarquiaDirecta.id;
