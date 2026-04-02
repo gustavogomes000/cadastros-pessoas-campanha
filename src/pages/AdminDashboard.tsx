@@ -631,6 +631,7 @@ export default function AdminDashboard() {
               const userCount = usuarios.filter(u => u.municipio_id === m.id).length;
               const lidCount = liderancas.filter(l => l.municipio_id === m.id).length;
               const eleCount = eleitores.filter(e => e.municipio_id === m.id).length;
+              const fisCount = fiscais.filter(f => f.municipio_id === m.id).length;
 
               return (
                 <div key={m.id} className="section-card">
@@ -650,7 +651,8 @@ export default function AdminDashboard() {
                   <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border">
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><Users size={10} /> {lidCount}</span>
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><Target size={10} /> {eleCount}</span>
-                    <span className="ml-auto text-xs font-bold text-primary">{lidCount + eleCount}</span>
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><Shield size={10} /> {fisCount}</span>
+                    <span className="ml-auto text-xs font-bold text-primary">{lidCount + eleCount + fisCount}</span>
                   </div>
                 </div>
               );
