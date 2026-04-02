@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface DuplicateResult {
   isDuplicate: boolean;
-  tipos: string[]; // e.g. ['liderança', 'fiscal']
+  tipos: string[]; // e.g. ['liderança', 'eleitor']
 }
 
 /**
@@ -31,14 +31,9 @@ export async function checkCpfDuplicateByUser(
   const pessoaIds = pessoas.map(p => p.id);
   const tipos: string[] = [];
 
-  // Check in parallel across all 3 tables
-  const [lRes, fRes, eRes] = await Promise.all([
+  // Check in parallel across tables
+  const [lRes, eRes] = await Promise.all([
     supabase.from('liderancas')
-      .select('id')
-      .in('pessoa_id', pessoaIds)
-      .eq('cadastrado_por', usuarioId)
-      .limit(1),
-    supabase.from('fiscais')
       .select('id')
       .in('pessoa_id', pessoaIds)
       .eq('cadastrado_por', usuarioId)
@@ -51,7 +46,6 @@ export async function checkCpfDuplicateByUser(
   ]);
 
   if (lRes.data && lRes.data.length > 0) tipos.push('Liderança');
-  if (fRes.data && fRes.data.length > 0) tipos.push('Fiscal');
   if (eRes.data && eRes.data.length > 0) tipos.push('Eleitor');
 
   return { isDuplicate: tipos.length > 0, tipos };

@@ -588,7 +588,6 @@ export default function TabPerfil() {
                 {[
                   { value: 'suplente', label: '🏛️ Suplente' },
                   { value: 'lideranca', label: '👥 Liderança' },
-                  { value: 'fiscal', label: '🛡️ Fiscal' },
                   { value: 'coordenador', label: '📋 Coordenador' },
                 ].map(opt => (
                   <button
