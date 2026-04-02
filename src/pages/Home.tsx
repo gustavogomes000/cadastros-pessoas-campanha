@@ -86,21 +86,14 @@ export default function Home() {
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain">
         <div className="max-w-[672px] mx-auto px-4 py-4">
-          {visitedTabs.has('liderancas') && activeTab === 'liderancas' && <TabLiderancas refreshKey={refreshKey} onSaved={handleSaved} />}
-          {visitedTabs.has('fiscais') && activeTab === 'fiscais' && <TabFiscais refreshKey={refreshKey} onSaved={handleSaved} />}
-          {visitedTabs.has('eleitores') && activeTab === 'eleitores' && <TabEleitores refreshKey={refreshKey} onSaved={handleSaved} />}
-          {visitedTabs.has('cadastros') && activeTab === 'cadastros' && <TabCadastros refreshKey={refreshKey} onSaved={handleSaved} />}
-          {activeTab === 'rastreamento' && (
-            <Suspense fallback={
-              <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <Loader2 size={28} className="animate-spin text-primary" />
-                <p className="text-xs text-muted-foreground">Carregando rastreamento...</p>
-              </div>
-            }>
-              <PainelLocalizacao />
-            </Suspense>
-          )}
-          {activeTab === 'perfil' && <TabPerfil />}
+          <Suspense fallback={<div className="flex items-center justify-center py-16"><Loader2 size={28} className="animate-spin text-primary" /></div>}>
+            {visitedTabs.has('liderancas') && activeTab === 'liderancas' && <TabLiderancas refreshKey={refreshKey} onSaved={handleSaved} />}
+            {visitedTabs.has('fiscais') && activeTab === 'fiscais' && <TabFiscais refreshKey={refreshKey} onSaved={handleSaved} />}
+            {visitedTabs.has('eleitores') && activeTab === 'eleitores' && <TabEleitores refreshKey={refreshKey} onSaved={handleSaved} />}
+            {visitedTabs.has('cadastros') && activeTab === 'cadastros' && <TabCadastros refreshKey={refreshKey} onSaved={handleSaved} />}
+            {activeTab === 'rastreamento' && <PainelLocalizacao />}
+            {activeTab === 'perfil' && <TabPerfil />}
+          </Suspense>
         </div>
       </div>
 
