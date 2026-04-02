@@ -2,15 +2,15 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCidade } from '@/contexts/CidadeContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useLiderancas, useFiscais, useEleitores, useInvalidarCadastros } from '@/hooks/useDataCache';
-import { Search, Users, Shield, Target, Phone, MapPin, Loader2, Download, UserCheck, Calendar, ChevronDown, Mail, MessageCircle, CreditCard, FileText, Globe } from 'lucide-react';
+import { useLiderancas, useEleitores, useInvalidarCadastros } from '@/hooks/useDataCache';
+import { Search, Users, Target, Phone, MapPin, Loader2, Download, UserCheck, Calendar, ChevronDown, Mail, MessageCircle, CreditCard, FileText, Globe } from 'lucide-react';
 import { exportAllCadastros } from '@/lib/exportXlsx';
 import { formatCPF } from '@/lib/cpf';
 import { toast } from '@/hooks/use-toast';
 
 import SkeletonLista from '@/components/SkeletonLista';
 
-type TipoFiltro = 'todos' | 'lideranca' | 'fiscal' | 'eleitor';
+type TipoFiltro = 'todos' | 'lideranca' | 'eleitor';
 
 interface CadastroUnificado {
   id: string;
@@ -56,7 +56,6 @@ interface CadastroUnificado {
 
 const tipoConfig = {
   lideranca: { label: 'Liderança', icon: Users, color: 'bg-purple-500/10 text-purple-600', dot: 'bg-purple-500' },
-  fiscal: { label: 'Fiscal', icon: Shield, color: 'bg-emerald-500/10 text-emerald-600', dot: 'bg-emerald-500' },
   eleitor: { label: 'Eleitor', icon: Target, color: 'bg-blue-500/10 text-blue-600', dot: 'bg-blue-500' },
 };
 
@@ -69,11 +68,10 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
   const { tipoUsuario, usuario, isAdmin, municipioId: authMunicipioId } = useAuth();
   const { cidadeAtiva, isTodasCidades, nomeMunicipioPorId } = useCidade();
   const { data: lidData, isLoading: lidLoading } = useLiderancas();
-  const { data: fisData, isLoading: fisLoading } = useFiscais();
   const { data: eleData, isLoading: eleLoading } = useEleitores();
   const invalidarCadastros = useInvalidarCadastros();
 
-  const loading = lidLoading || fisLoading || eleLoading;
+  const loading = lidLoading || eleLoading;
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -134,17 +132,6 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
         });
       }
     }
-    if (fisData) {
-      for (const f of fisData as any[]) {
-        results.push({
-          ...mapBase(f), id: f.id, tipo: 'fiscal',
-          status: f.status, regiao: null,
-          zona_fiscal: f.zona_fiscal || null,
-          secao_fiscal: f.secao_fiscal || null,
-          colegio_fiscal: f.colegio_eleitoral || null,
-        });
-      }
-    }
     if (eleData) {
       for (const e of eleData as any[]) {
         results.push({
@@ -152,13 +139,13 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
           status: e.compromisso_voto, regiao: null,
           compromisso_voto: e.compromisso_voto || null,
           lideranca_nome: e.liderancas?.pessoas?.nome || null,
-          fiscal_nome: e.fiscais?.pessoas?.nome || null,
+          fiscal_nome: null,
         });
       }
     }
     results.sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
     return results;
-  }, [lidData, fisData, eleData]);
+  }, [lidData, eleData]);
 
   useEffect(() => {
     if (refreshKey > 0) invalidarCadastros();
@@ -167,9 +154,8 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
   const stats = useMemo(() => {
     const total = cadastros.length;
     const liderancas = cadastros.filter(c => c.tipo === 'lideranca').length;
-    const fiscais = cadastros.filter(c => c.tipo === 'fiscal').length;
     const eleitores = cadastros.filter(c => c.tipo === 'eleitor').length;
-    return { total, liderancas, fiscais, eleitores };
+    return { total, liderancas, eleitores };
   }, [cadastros]);
 
   const filtered = useMemo(() => {
@@ -190,7 +176,7 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const tipo = tipoFiltro === 'todos' ? undefined : (tipoFiltro === 'lideranca' ? 'lideranca' : tipoFiltro === 'fiscal' ? 'fiscal' : 'eleitor') as any;
+      const tipo = tipoFiltro === 'todos' ? undefined : (tipoFiltro as 'lideranca' | 'eleitor');
       const count = await exportAllCadastros(tipo);
       toast({ title: `✅ ${count} registros exportados!` });
     } catch (err: any) {

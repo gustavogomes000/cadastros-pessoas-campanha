@@ -4,9 +4,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCidade } from '@/contexts/CidadeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { useLiderancas, useFiscais, useEleitores, useUsuarios } from '@/hooks/useDataCache';
+import { useLiderancas, useEleitores, useUsuarios } from '@/hooks/useDataCache';
 import {
-  ArrowLeft, Users, Shield, Target, Search,
+  ArrowLeft, Users, Target, Search,
   ChevronDown, ChevronUp, Loader2, Download, Trophy,
   BarChart3, UserCog, Eye, Building2, Plus, MapPin, Tag, ExternalLink
 } from 'lucide-react';
@@ -41,15 +41,6 @@ interface LiderancaReg {
   pessoas: Pessoa | null;
 }
 
-interface FiscalReg {
-  id: string; criado_em: string; cadastrado_por: string | null;
-  suplente_id: string | null; status: string | null; zona_fiscal: string | null;
-  secao_fiscal: string | null; colegio_eleitoral: string | null;
-  municipio_id: string | null; origem_captacao: string | null;
-  observacoes: string | null;
-  pessoas: Pessoa | null;
-}
-
 interface EleitorReg {
   id: string; criado_em: string; cadastrado_por: string | null;
   suplente_id: string | null; compromisso_voto: string | null;
@@ -65,13 +56,13 @@ interface HierarquiaUsuario {
 
 /* ── constants ── */
 type Periodo = 'hoje' | 'semana' | 'mes' | 'total';
-type TipoFiltro = 'todos' | 'lideranca' | 'fiscal' | 'eleitor';
+type TipoFiltro = 'todos' | 'lideranca' | 'eleitor';
 type VistaAtiva = 'usuarios' | 'ranking' | 'registros' | 'cidades' | 'externas';
-type TipoUsuarioFiltro = 'todos' | 'suplente' | 'lideranca' | 'fiscal' | 'coordenador';
+type TipoUsuarioFiltro = 'todos' | 'suplente' | 'lideranca' | 'coordenador';
 
 const periodoLabels: Record<Periodo, string> = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês', total: 'Total' };
-const tipoFiltroLabels: Record<TipoFiltro, string> = { todos: 'Todos', lideranca: 'Lideranças', fiscal: 'Fiscais', eleitor: 'Eleitores' };
-const tipoUsuarioLabels: Record<TipoUsuarioFiltro, string> = { todos: 'Todos', suplente: 'Suplentes', lideranca: 'Lideranças', fiscal: 'Fiscais', coordenador: 'Coordenadores' };
+const tipoFiltroLabels: Record<TipoFiltro, string> = { todos: 'Todos', lideranca: 'Lideranças', eleitor: 'Eleitores' };
+const tipoUsuarioLabels: Record<TipoUsuarioFiltro, string> = { todos: 'Todos', suplente: 'Suplentes', lideranca: 'Lideranças', coordenador: 'Coordenadores' };
 
 const tipoLabel = (t: string) => {
   const labels: Record<string, string> = { super_admin: 'Admin', coordenador: 'Coord.', suplente: 'Suplente', lideranca: 'Liderança', fiscal: 'Fiscal' };
@@ -92,15 +83,13 @@ export default function AdminDashboard() {
   const [tipoUsuarioFiltro, setTipoUsuarioFiltro] = useState<TipoUsuarioFiltro>('todos');
 
   const { data: liderancasData, isLoading: lLoading } = useLiderancas('all');
-  const { data: fiscaisData, isLoading: fLoading } = useFiscais('all');
   const { data: eleitoresData, isLoading: eLoading } = useEleitores('all');
   const { data: usuariosData, isLoading: uLoading } = useUsuarios();
 
   const liderancas = (liderancasData || []) as LiderancaReg[];
-  const fiscais = (fiscaisData || []) as FiscalReg[];
   const eleitores = (eleitoresData || []) as EleitorReg[];
   const usuarios = (usuariosData || []) as unknown as HierarquiaUsuario[];
-  const loading = lLoading || fLoading || eLoading || uLoading;
+  const loading = lLoading || eLoading || uLoading;
 
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [expandedTipo, setExpandedTipo] = useState<string | null>(null);
@@ -125,27 +114,25 @@ export default function AdminDashboard() {
   }, [periodo, hoje, inicioSemana, inicioMes]);
 
   const filteredL = useMemo(() => liderancas.filter(r => dateFilter(r.criado_em)), [liderancas, dateFilter]);
-  const filteredF = useMemo(() => fiscais.filter(r => dateFilter(r.criado_em)), [fiscais, dateFilter]);
   const filteredE = useMemo(() => eleitores.filter(r => dateFilter(r.criado_em)), [eleitores, dateFilter]);
 
   const totais = useMemo(() => ({
-    l: filteredL.length, f: filteredF.length, e: filteredE.length,
-    total: filteredL.length + filteredF.length + filteredE.length,
-  }), [filteredL, filteredF, filteredE]);
+    l: filteredL.length, e: filteredE.length,
+    total: filteredL.length + filteredE.length,
+  }), [filteredL, filteredE]);
 
   /* ── Ranking ── */
   const rankingUsuarios = useMemo(() => {
-    const map: Record<string, { l: number; f: number; e: number }> = {};
-    filteredL.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, f: 0, e: 0 }; map[r.cadastrado_por].l++; });
-    filteredF.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, f: 0, e: 0 }; map[r.cadastrado_por].f++; });
-    filteredE.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, f: 0, e: 0 }; map[r.cadastrado_por].e++; });
+    const map: Record<string, { l: number; e: number }> = {};
+    filteredL.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, e: 0 }; map[r.cadastrado_por].l++; });
+    filteredE.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, e: 0 }; map[r.cadastrado_por].e++; });
     return Object.entries(map)
       .map(([id, stats]) => {
         const u = usuarios.find(u => u.id === id);
-        return { id, nome: u?.nome || 'Desconhecido', tipo: u?.tipo || '—', municipio_id: u?.municipio_id || null, total: stats.l + stats.f + stats.e, ...stats };
+        return { id, nome: u?.nome || 'Desconhecido', tipo: u?.tipo || '—', municipio_id: u?.municipio_id || null, total: stats.l + stats.e, ...stats };
       })
       .sort((a, b) => b.total - a.total);
-  }, [filteredL, filteredF, filteredE, usuarios]);
+  }, [filteredL, filteredE, usuarios]);
 
   /* ── Users list ── */
   const filteredUsers = useMemo(() => {
@@ -172,8 +159,6 @@ export default function AdminDashboard() {
     let result: { tipo: string; pessoa: Pessoa | null; criado_em: string; cadastrado_por: string | null; extra: string; origem: string | null }[] = [];
     if (tipoFiltro === 'todos' || tipoFiltro === 'lideranca')
       filteredL.forEach(r => result.push({ tipo: 'lideranca', pessoa: r.pessoas, criado_em: r.criado_em, cadastrado_por: r.cadastrado_por, extra: r.status || '', origem: r.origem_captacao }));
-    if (tipoFiltro === 'todos' || tipoFiltro === 'fiscal')
-      filteredF.forEach(r => result.push({ tipo: 'fiscal', pessoa: r.pessoas, criado_em: r.criado_em, cadastrado_por: r.cadastrado_por, extra: `Z${r.zona_fiscal || '?'} S${r.secao_fiscal || '?'}`, origem: r.origem_captacao }));
     if (tipoFiltro === 'todos' || tipoFiltro === 'eleitor')
       filteredE.forEach(r => result.push({ tipo: 'eleitor', pessoa: r.pessoas, criado_em: r.criado_em, cadastrado_por: r.cadastrado_por, extra: r.compromisso_voto || '', origem: r.origem_captacao }));
     if (searchTerm) {
@@ -181,12 +166,12 @@ export default function AdminDashboard() {
       result = result.filter(r => r.pessoa?.nome?.toLowerCase().includes(s) || r.pessoa?.cpf?.includes(s));
     }
     return result.sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
-  }, [filteredL, filteredF, filteredE, tipoFiltro, searchTerm]);
+  }, [filteredL, filteredE, tipoFiltro, searchTerm]);
 
   const getUserName = (id: string | null) => id ? (usuarios.find(u => u.id === id)?.nome || '—') : '—';
   const getMedalEmoji = (i: number) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`;
 
-  const handleExport = async (tipo?: 'lideranca' | 'fiscal' | 'eleitor') => {
+  const handleExport = async (tipo?: 'lideranca' | 'eleitor') => {
     setExporting(true);
     try {
       const count = await exportAllCadastros(tipo);
@@ -201,10 +186,9 @@ export default function AdminDashboard() {
     if (!expandedUser) return null;
     return {
       liderancas: filteredL.filter(r => r.cadastrado_por === expandedUser),
-      fiscais: filteredF.filter(r => r.cadastrado_por === expandedUser),
       eleitores: filteredE.filter(r => r.cadastrado_por === expandedUser),
     };
-  }, [expandedUser, filteredL, filteredF, filteredE]);
+  }, [expandedUser, filteredL, filteredE]);
 
   const vistaLabels: { id: VistaAtiva; icon: typeof BarChart3; label: string }[] = [
     { id: 'ranking', icon: Trophy, label: 'Ranking' },
@@ -296,9 +280,8 @@ export default function AdminDashboard() {
 
             {filteredUsers.map(u => {
               const uL = filteredL.filter(r => r.cadastrado_por === u.id);
-              const uF = filteredF.filter(r => r.cadastrado_por === u.id);
               const uE = filteredE.filter(r => r.cadastrado_por === u.id);
-              const total = uL.length + uF.length + uE.length;
+              const total = uL.length + uE.length;
               const isExpanded = expandedUser === u.id;
               const cityName = nomeMunicipioPorId(u.municipio_id);
 
@@ -332,10 +315,9 @@ export default function AdminDashboard() {
                   {isExpanded && userCadastros && (
                     <div className="border-t border-border px-3 pb-3 pt-2 space-y-2">
                       {/* Counts */}
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         {[
                           { key: 'lideranca', label: 'Lideranças', count: userCadastros.liderancas.length, icon: Users },
-                          { key: 'fiscal', label: 'Fiscais', count: userCadastros.fiscais.length, icon: Shield },
                           { key: 'eleitor', label: 'Eleitores', count: userCadastros.eleitores.length, icon: Target },
                         ].map(({ key, label, count, icon: Icon }) => (
                           <button key={key}
@@ -356,7 +338,6 @@ export default function AdminDashboard() {
                         <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
                           {(() => {
                             const records = expandedTipo === 'lideranca' ? userCadastros.liderancas
-                              : expandedTipo === 'fiscal' ? userCadastros.fiscais
                               : userCadastros.eleitores;
                             if (records.length === 0) return <p className="text-xs text-muted-foreground text-center py-4">Nenhum registro</p>;
                             return records.map((r: any) => {
@@ -407,12 +388,6 @@ export default function AdminDashboard() {
                                     <Field label="Meta votos" value={r.meta_votos} />
                                   </div>
                                 )}
-                                {expandedTipo === 'fiscal' && (
-                                  <div className="grid grid-cols-2 gap-1">
-                                    <Field label="Zona fiscal" value={r.zona_fiscal} />
-                                    <Field label="Seção fiscal" value={r.secao_fiscal} />
-                                  </div>
-                                )}
                                 {expandedTipo === 'eleitor' && (
                                   <div className="grid grid-cols-2 gap-1">
                                     <Field label="Compromisso" value={r.compromisso_voto} />
@@ -445,7 +420,6 @@ export default function AdminDashboard() {
           const filtered = rankingUsuarios.filter(u => {
             if (tipoFiltro === 'todos') return true;
             if (tipoFiltro === 'lideranca') return u.l > 0;
-            if (tipoFiltro === 'fiscal') return u.f > 0;
             return u.e > 0;
           });
           const maxTotal = filtered.length > 0 ? filtered[0].total : 1;
@@ -486,7 +460,7 @@ export default function AdminDashboard() {
                           <p className="text-2xl font-black text-primary leading-none">{u.total}</p>
                           <div className="flex flex-wrap gap-0.5 justify-center">
                             {u.l > 0 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-primary/15 text-primary">L{u.l}</span>}
-                            {u.f > 0 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-accent text-accent-foreground">F{u.f}</span>}
+                            {u.e > 0 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-secondary text-secondary-foreground">E{u.e}</span>}
                             {u.e > 0 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-secondary text-secondary-foreground">E{u.e}</span>}
                           </div>
                         </div>
@@ -520,7 +494,7 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex gap-1 shrink-0">
                           {u.l > 0 && <span className="text-[10px] font-bold px-1.5 py-1 rounded-lg bg-primary/15 text-primary">L{u.l}</span>}
-                          {u.f > 0 && <span className="text-[10px] font-bold px-1.5 py-1 rounded-lg bg-accent text-accent-foreground">F{u.f}</span>}
+                          {u.e > 0 && <span className="text-[10px] font-bold px-1.5 py-1 rounded-lg bg-secondary text-secondary-foreground">E{u.e}</span>}
                           {u.e > 0 && <span className="text-[10px] font-bold px-1.5 py-1 rounded-lg bg-secondary text-secondary-foreground">E{u.e}</span>}
                         </div>
                         <p className="text-xl font-black text-primary shrink-0 min-w-[2rem] text-right">{u.total}</p>
@@ -581,10 +555,9 @@ export default function AdminDashboard() {
                   </div>
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                     r.tipo === 'lideranca' ? 'bg-primary/10 text-primary'
-                    : r.tipo === 'fiscal' ? 'bg-accent text-accent-foreground'
                     : 'bg-secondary text-secondary-foreground'
                   }`}>
-                    {r.tipo === 'lideranca' ? 'Liderança' : r.tipo === 'fiscal' ? 'Fiscal' : 'Eleitor'}
+                    {r.tipo === 'lideranca' ? 'Liderança' : 'Eleitor'}
                   </span>
                 </div>
               ))}
@@ -623,7 +596,6 @@ export default function AdminDashboard() {
             {municipios.map(m => {
               const userCount = usuarios.filter(u => u.municipio_id === m.id).length;
               const lidCount = liderancas.filter(l => l.municipio_id === m.id).length;
-              const fisCount = fiscais.filter(f => f.municipio_id === m.id).length;
               const eleCount = eleitores.filter(e => e.municipio_id === m.id).length;
 
               return (
@@ -643,9 +615,8 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border">
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><Users size={10} /> {lidCount}</span>
-                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><Shield size={10} /> {fisCount}</span>
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><Target size={10} /> {eleCount}</span>
-                    <span className="ml-auto text-xs font-bold text-primary">{lidCount + fisCount + eleCount}</span>
+                    <span className="ml-auto text-xs font-bold text-primary">{lidCount + eleCount}</span>
                   </div>
                 </div>
               );

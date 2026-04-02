@@ -6,7 +6,6 @@ import { Loader2 } from 'lucide-react';
 const MODULOS = [
   { id: 'master', label: '🔑 Acesso Master', desc: 'Acesso total — vê e faz tudo no sistema' },
   { id: 'cadastrar_liderancas', label: '👥 Cadastrar Lideranças', desc: 'Pode cadastrar novas lideranças' },
-  { id: 'cadastrar_fiscais', label: '🛡️ Cadastrar Fiscais', desc: 'Pode cadastrar fiscais eleitorais' },
   { id: 'cadastrar_eleitores', label: '🎯 Cadastrar Eleitores', desc: 'Pode cadastrar possíveis eleitores' },
 ];
 
