@@ -388,12 +388,6 @@ export default function AdminDashboard() {
                                     <Field label="Meta votos" value={r.meta_votos} />
                                   </div>
                                 )}
-                                {expandedTipo === 'fiscal' && (
-                                  <div className="grid grid-cols-2 gap-1">
-                                    <Field label="Zona fiscal" value={r.zona_fiscal} />
-                                    <Field label="Seção fiscal" value={r.secao_fiscal} />
-                                  </div>
-                                )}
                                 {expandedTipo === 'eleitor' && (
                                   <div className="grid grid-cols-2 gap-1">
                                     <Field label="Compromisso" value={r.compromisso_voto} />
