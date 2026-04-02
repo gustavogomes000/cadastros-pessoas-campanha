@@ -133,7 +133,7 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
           status: e.compromisso_voto, regiao: null,
           compromisso_voto: e.compromisso_voto || null,
           lideranca_nome: e.liderancas?.pessoas?.nome || null,
-          fiscal_nome: null,
+          
         });
       }
     }
