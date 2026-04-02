@@ -25,7 +25,7 @@ interface HierarchyUser {
 }
 
 interface TreeNode {
-  tipo: 'lideranca' | 'fiscal' | 'eleitor';
+  tipo: 'lideranca' | 'eleitor';
   id: string;
   nome: string;
   status: string | null;
@@ -49,7 +49,7 @@ export default function TabSuplentes({ refreshKey }: Props) {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [stats, setStats] = useState({ liderancas: 0, fiscais: 0, eleitores: 0 });
+  const [stats, setStats] = useState({ liderancas: 0, eleitores: 0 });
 
   // Create access state
   const [creatingAccess, setCreatingAccess] = useState<SuplenteRow | null>(null);
@@ -111,17 +111,15 @@ export default function TabSuplentes({ refreshKey }: Props) {
     setLoadingTree(true);
     setExpandedIds(new Set());
 
-    const [lRes, fRes, eRes] = await Promise.all([
+    const [lRes, eRes] = await Promise.all([
       supabase.from('liderancas').select('id, status, tipo_lideranca, pessoas(nome, telefone, whatsapp)').eq('suplente_id', sup.id).order('criado_em', { ascending: false }),
-      supabase.from('fiscais').select('id, status, zona_fiscal, secao_fiscal, lideranca_id, pessoas(nome, telefone, whatsapp)').eq('suplente_id', sup.id).order('criado_em', { ascending: false }),
-      supabase.from('possiveis_eleitores').select('id, compromisso_voto, lideranca_id, fiscal_id, pessoas(nome, telefone, whatsapp)').eq('suplente_id', sup.id).order('criado_em', { ascending: false }),
+      supabase.from('possiveis_eleitores').select('id, compromisso_voto, lideranca_id, pessoas(nome, telefone, whatsapp)').eq('suplente_id', sup.id).order('criado_em', { ascending: false }),
     ]);
 
     const liderancas = (lRes.data || []) as any[];
-    const fiscais = (fRes.data || []) as any[];
     const eleitores = (eRes.data || []) as any[];
 
-    setStats({ liderancas: liderancas.length, fiscais: fiscais.length, eleitores: eleitores.length });
+    setStats({ liderancas: liderancas.length, eleitores: eleitores.length });
 
     const treeNodes: TreeNode[] = [];
 
@@ -132,25 +130,7 @@ export default function TabSuplentes({ refreshKey }: Props) {
         detalhes: lid.tipo_lideranca || '—', children: [],
       };
 
-      const lidFiscais = fiscais.filter((f: any) => f.lideranca_id === lid.id);
-      for (const fisc of lidFiscais) {
-        const fiscNode: TreeNode = {
-          tipo: 'fiscal', id: fisc.id, nome: fisc.pessoas?.nome || '—',
-          status: fisc.status, telefone: fisc.pessoas?.telefone, whatsapp: fisc.pessoas?.whatsapp,
-          detalhes: `Z${fisc.zona_fiscal || '—'} S${fisc.secao_fiscal || '—'}`, children: [],
-        };
-        const fiscEleitores = eleitores.filter((e: any) => e.fiscal_id === fisc.id);
-        for (const el of fiscEleitores) {
-          fiscNode.children.push({
-            tipo: 'eleitor', id: el.id, nome: el.pessoas?.nome || '—',
-            status: el.compromisso_voto, telefone: el.pessoas?.telefone, whatsapp: el.pessoas?.whatsapp,
-            detalhes: el.compromisso_voto || 'Indefinido', children: [],
-          });
-        }
-        lidNode.children.push(fiscNode);
-      }
-
-      const lidEleitores = eleitores.filter((e: any) => e.lideranca_id === lid.id && !e.fiscal_id);
+      const lidEleitores = eleitores.filter((e: any) => e.lideranca_id === lid.id);
       for (const el of lidEleitores) {
         lidNode.children.push({
           tipo: 'eleitor', id: el.id, nome: el.pessoas?.nome || '—',
@@ -161,25 +141,7 @@ export default function TabSuplentes({ refreshKey }: Props) {
       treeNodes.push(lidNode);
     }
 
-    const orphanFiscais = fiscais.filter((f: any) => !f.lideranca_id);
-    for (const fisc of orphanFiscais) {
-      const fiscNode: TreeNode = {
-        tipo: 'fiscal', id: fisc.id, nome: fisc.pessoas?.nome || '—',
-        status: fisc.status, telefone: fisc.pessoas?.telefone, whatsapp: fisc.pessoas?.whatsapp,
-        detalhes: `Z${fisc.zona_fiscal || '—'} S${fisc.secao_fiscal || '—'}`, children: [],
-      };
-      const fiscEleitores = eleitores.filter((e: any) => e.fiscal_id === fisc.id && !e.lideranca_id);
-      for (const el of fiscEleitores) {
-        fiscNode.children.push({
-          tipo: 'eleitor', id: el.id, nome: el.pessoas?.nome || '—',
-          status: el.compromisso_voto, telefone: el.pessoas?.telefone, whatsapp: el.pessoas?.whatsapp,
-          detalhes: el.compromisso_voto || 'Indefinido', children: [],
-        });
-      }
-      treeNodes.push(fiscNode);
-    }
-
-    const orphanEleitores = eleitores.filter((e: any) => !e.lideranca_id && !e.fiscal_id);
+    const orphanEleitores = eleitores.filter((e: any) => !e.lideranca_id);
     for (const el of orphanEleitores) {
       treeNodes.push({
         tipo: 'eleitor', id: el.id, nome: el.pessoas?.nome || '—',
@@ -300,9 +262,8 @@ export default function TabSuplentes({ refreshKey }: Props) {
     }
   };
 
-  const typeConfig = {
+  const typeConfig: Record<string, { bg: string; text: string; label: string; border: string }> = {
     lideranca: { bg: 'bg-blue-500/10', text: 'text-blue-600', label: 'Lid', border: 'border-blue-500/30' },
-    fiscal: { bg: 'bg-purple-500/10', text: 'text-purple-600', label: 'Fisc', border: 'border-purple-500/30' },
     eleitor: { bg: 'bg-amber-500/10', text: 'text-amber-600', label: 'Eleit', border: 'border-amber-500/30' },
   };
 
@@ -553,10 +514,9 @@ export default function TabSuplentes({ refreshKey }: Props) {
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {[
             { label: 'Lideranças', value: stats.liderancas, color: 'text-blue-500' },
-            { label: 'Fiscais', value: stats.fiscais, color: 'text-purple-500' },
             { label: 'Eleitores', value: stats.eleitores, color: 'text-amber-500' },
           ].map(s => (
             <div key={s.label} className="bg-card rounded-xl border border-border p-2.5 text-center">
@@ -577,7 +537,7 @@ export default function TabSuplentes({ refreshKey }: Props) {
         ) : (
           <div className="section-card !p-2">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold px-2 py-1">
-              Lideranças → Fiscais → Eleitores
+              Lideranças → Eleitores
             </p>
             {tree.map(node => renderTreeNode(node, 0))}
           </div>

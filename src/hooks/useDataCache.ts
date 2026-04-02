@@ -8,8 +8,6 @@ import { useMemo, useCallback } from 'react';
 const keys = {
   liderancas: (munId: string | null, scope: string) =>
     ['liderancas', munId, scope] as const,
-  fiscais: (munId: string | null, scope: string) =>
-    ['fiscais', munId, scope] as const,
   eleitores: (munId: string | null, scope: string) =>
     ['eleitores', munId, scope] as const,
   usuarios: () => ['hierarquia_usuarios'] as const,
@@ -42,17 +40,15 @@ export function useContagens() {
         return q;
       };
 
-      const [l, f, e] = await Promise.all([
+      const [l, e] = await Promise.all([
         buildQuery('liderancas'),
-        buildQuery('fiscais'),
         buildQuery('possiveis_eleitores'),
       ]);
 
       return {
         liderancas: l.count ?? 0,
-        fiscais: f.count ?? 0,
         eleitores: e.count ?? 0,
-        total: (l.count ?? 0) + (f.count ?? 0) + (e.count ?? 0),
+        total: (l.count ?? 0) + (e.count ?? 0),
       };
     },
     staleTime: 2 * 60 * 1000,
@@ -70,7 +66,7 @@ function applyScopeFilter(
   scope: 'own' | 'all',
   isAdmin: boolean,
   usuario: { id: string; suplente_id: string | null } | null,
-  table: 'liderancas' | 'fiscais' | 'possiveis_eleitores'
+  table: 'liderancas' | 'possiveis_eleitores'
 ) {
   if (!usuario) return q;
 
@@ -127,39 +123,9 @@ export function useLiderancas(scope: 'own' | 'all' = 'own') {
   });
 }
 
-/* ── Fiscais ── */
-const QUERY_FISC = 'id, status, colegio_eleitoral, zona_fiscal, secao_fiscal, cadastrado_por, criado_em, municipio_id, origem_captacao, suplente_id, lideranca_id, observacoes, pessoas(nome, cpf, telefone, whatsapp, email, instagram, facebook, titulo_eleitor, zona_eleitoral, secao_eleitoral, municipio_eleitoral, uf_eleitoral, colegio_eleitoral, endereco_colegio, situacao_titulo), hierarquia_usuarios!fiscais_cadastrado_por_fkey(nome)';
-
-export function useFiscais(scope: 'own' | 'all' = 'own') {
-  const { usuario, tipoUsuario } = useAuth();
-  const filtroMunicipioId = useFiltroMunicipio();
-  const isAdmin = tipoUsuario === 'super_admin' || tipoUsuario === 'coordenador';
-  const scopeKey = scope === 'all' ? 'all' : (isAdmin && usuario?.suplente_id ? `sup-${usuario.suplente_id}` : usuario?.id || 'none');
-
-  return useQuery({
-    queryKey: keys.fiscais(filtroMunicipioId, scopeKey),
-    queryFn: async () => {
-      let q = (supabase as any)
-        .from('fiscais')
-        .select(QUERY_FISC)
-        .order('criado_em', { ascending: false })
-        .limit(scope === 'all' && isAdmin ? 2000 : 500);
-
-      if (scope === 'all' && filtroMunicipioId) q = q.or(`municipio_id.eq.${filtroMunicipioId},municipio_id.is.null`);
-      q = applyScopeFilter(q, scope, isAdmin, usuario, 'fiscais');
-
-      const { data, error } = await q;
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!usuario,
-    staleTime: 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-  });
-}
 
 /* ── Eleitores ── */
-const QUERY_ELE = 'id, compromisso_voto, lideranca_id, fiscal_id, cadastrado_por, criado_em, municipio_id, origem_captacao, suplente_id, observacoes, pessoas(nome, cpf, telefone, whatsapp, email, instagram, facebook, titulo_eleitor, zona_eleitoral, secao_eleitoral, municipio_eleitoral, uf_eleitoral, colegio_eleitoral, endereco_colegio, situacao_titulo), liderancas:lideranca_id(id, pessoas(nome)), fiscais:fiscal_id(id, pessoas(nome)), hierarquia_usuarios!possiveis_eleitores_cadastrado_por_fkey(nome)';
+const QUERY_ELE = 'id, compromisso_voto, lideranca_id, cadastrado_por, criado_em, municipio_id, origem_captacao, suplente_id, observacoes, pessoas(nome, cpf, telefone, whatsapp, email, instagram, facebook, titulo_eleitor, zona_eleitoral, secao_eleitoral, municipio_eleitoral, uf_eleitoral, colegio_eleitoral, endereco_colegio, situacao_titulo), liderancas:lideranca_id(id, pessoas(nome)), hierarquia_usuarios!possiveis_eleitores_cadastrado_por_fkey(nome)';
 
 export function useEleitores(scope: 'own' | 'all' = 'own') {
   const { usuario, tipoUsuario } = useAuth();
@@ -212,7 +178,7 @@ export function useInvalidarCadastros() {
   const qc = useQueryClient();
   return useCallback(() => {
     qc.invalidateQueries({ queryKey: ['liderancas'] });
-    qc.invalidateQueries({ queryKey: ['fiscais'] });
+    
     qc.invalidateQueries({ queryKey: ['eleitores'] });
     qc.invalidateQueries({ queryKey: ['contagens'] });
   }, [qc]);

@@ -33,7 +33,6 @@ interface LigacaoPoliticaResult {
   subtitulo: string | null;
   suplenteId: string | null;
   liderancaId: string | null;
-  fiscalId: string | null;
   municipioId: string | null;
 }
 
@@ -49,7 +48,6 @@ export async function resolverLigacaoPolitica(
     subtitulo: null,
     suplenteId: null,
     liderancaId: null,
-    fiscalId: null,
     municipioId: null,
   };
 
@@ -104,32 +102,6 @@ export async function resolverLigacaoPolitica(
         resultado.liderancaId = l.id;
         resultado.nomeFixo = l.pessoas?.nome || 'Liderança vinculada';
         resultado.subtitulo = 'Vinculado ao seu perfil de liderança';
-      }
-    } catch {}
-
-    resultado.municipioId = await resolverMunicipioId(usuario.suplente_id);
-    return resultado;
-  }
-
-  // 3. Fiscal → buscar fiscal vinculado
-  if (usuario.tipo === 'fiscal' && usuario.suplente_id) {
-    resultado.bloqueado = true;
-    resultado.suplenteId = usuario.suplente_id;
-
-    // Ensure suplente exists locally
-    await sincronizarSuplenteLocal(usuario.suplente_id);
-
-    try {
-      const { data: fiscais } = await supabase
-        .from('fiscais')
-        .select('id, pessoas(nome)')
-        .eq('suplente_id', usuario.suplente_id)
-        .limit(1);
-      if (fiscais && fiscais.length > 0) {
-        const f = fiscais[0] as any;
-        resultado.fiscalId = f.id;
-        resultado.nomeFixo = f.pessoas?.nome || 'Fiscal vinculado';
-        resultado.subtitulo = 'Vinculado ao seu perfil de fiscal';
       }
     } catch {}
 

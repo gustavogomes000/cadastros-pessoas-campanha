@@ -57,8 +57,8 @@ export async function migrarSuplentesMunicipio(
     }
   }
 
-  // Update liderancas, fiscais, possiveis_eleitores
-  for (const table of ['liderancas', 'fiscais', 'possiveis_eleitores'] as const) {
+  // Update liderancas, possiveis_eleitores
+  for (const table of ['liderancas', 'possiveis_eleitores'] as const) {
     const { data: registros } = await supabase
       .from(table)
       .select('id, suplente_id')

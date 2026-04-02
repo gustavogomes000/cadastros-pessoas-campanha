@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Search, Users, Shield, Target, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, Users, Target, Loader2 } from 'lucide-react';
 import { maskCPF } from '@/lib/cpf';
 import SkeletonLista from '@/components/SkeletonLista';
 
 const PAGE_SIZE = 20;
 
-type TipoAba = 'liderancas' | 'fiscais' | 'eleitores';
+type TipoAba = 'liderancas' | 'eleitores';
 type Periodo = 'hoje' | '7dias' | '30dias' | 'todos';
 
 interface RegistroBase {
@@ -20,7 +20,6 @@ interface RegistroBase {
 
 const abaConfig: { id: TipoAba; label: string; icon: typeof Users }[] = [
   { id: 'liderancas', label: 'Lideranças', icon: Users },
-  { id: 'fiscais', label: 'Fiscais', icon: Shield },
   { id: 'eleitores', label: 'Eleitores', icon: Target },
 ];
 
@@ -48,27 +47,25 @@ export default function CadastrosExternos() {
   const [loading, setLoading] = useState(true);
 
   const [dados, setDados] = useState<Record<TipoAba, RegistroBase[]>>({
-    liderancas: [], fiscais: [], eleitores: [],
+    liderancas: [], eleitores: [],
   });
   const [contadores, setContadores] = useState<Record<TipoAba, number>>({
-    liderancas: 0, fiscais: 0, eleitores: 0,
+    liderancas: 0, eleitores: 0,
   });
   const [pagina, setPagina] = useState<Record<TipoAba, number>>({
-    liderancas: 0, fiscais: 0, eleitores: 0,
+    liderancas: 0, eleitores: 0,
   });
   const [temMais, setTemMais] = useState<Record<TipoAba, boolean>>({
-    liderancas: true, fiscais: true, eleitores: true,
+    liderancas: true, eleitores: true,
   });
 
   const tabelaMap: Record<TipoAba, string> = {
     liderancas: 'liderancas',
-    fiscais: 'fiscais',
     eleitores: 'possiveis_eleitores',
   };
 
   const fkCadastradoPor: Record<TipoAba, string> = {
     liderancas: 'liderancas_cadastrado_por_fkey',
-    fiscais: 'fiscais_cadastrado_por_fkey',
     eleitores: 'possiveis_eleitores_cadastrado_por_fkey',
   };
 
@@ -107,13 +104,13 @@ export default function CadastrosExternos() {
   useEffect(() => {
     const carregar = async () => {
       setLoading(true);
-      setPagina({ liderancas: 0, fiscais: 0, eleitores: 0 });
-      setDados({ liderancas: [], fiscais: [], eleitores: [] });
+      setPagina({ liderancas: 0, eleitores: 0 });
+      setDados({ liderancas: [], eleitores: [] });
 
       const dataLimite = getDataLimite(periodo);
 
       // Contadores de todas as abas
-      const contagemPromises = (['liderancas', 'fiscais', 'eleitores'] as TipoAba[]).map(async (aba) => {
+      const contagemPromises = (['liderancas', 'eleitores'] as TipoAba[]).map(async (aba) => {
         let q = (supabase as any)
           .from(tabelaMap[aba])
           .select('*', { count: 'exact', head: true })
@@ -124,7 +121,7 @@ export default function CadastrosExternos() {
       });
 
       const contagens = await Promise.all(contagemPromises);
-      const novosContadores: Record<TipoAba, number> = { liderancas: 0, fiscais: 0, eleitores: 0 };
+      const novosContadores: Record<TipoAba, number> = { liderancas: 0, eleitores: 0 };
       contagens.forEach(c => { novosContadores[c.aba] = c.count; });
       setContadores(novosContadores);
 
