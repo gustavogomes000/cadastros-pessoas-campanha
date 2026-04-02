@@ -125,7 +125,7 @@ export default function TabCadastrar({ onSaved }: Props) {
   const getSuplementeId = (): string | null => {
     if (!usuario) return null;
     if (usuario.tipo === 'suplente') return usuario.suplente_id;
-    // For liderança/fiscal, suplente_id should be resolved server-side via get_meu_suplente_id()
+    // For liderança, suplente_id should be resolved server-side via get_meu_suplente_id()
     return usuario.suplente_id || null;
   };
 
