@@ -482,15 +482,13 @@ export default function TabFiscais({ refreshKey, onSaved, viewOnly }: Props) {
         <CampoLigacaoPolitica
           bloqueado={ligBloqueado}
           nomeFixo={ligNomeFixo}
-          subtitulo={ligSubtitulo}
-          suplenteId={ligSuplenteId}
-          liderancaId={ligLiderancaId}
-          municipioId={ligMunicipioId}
+          subtituloFixo={ligSubtitulo}
+          suplenteIdSelecionado={ligSuplenteId}
+          liderancaIdSelecionada={ligLiderancaId}
+          onSuplenteChange={(id, _nome, munId) => { setLigSuplenteId(id); setLigLiderancaId(null); setLigMunicipioId(munId); setLigErro(null); }}
+          onLiderancaChange={(id, _nome, supId, munId) => { setLigLiderancaId(id); setLigSuplenteId(supId); setLigMunicipioId(munId); setLigErro(null); }}
+          obrigatorio={tipoUsuario !== 'super_admin' && tipoUsuario !== 'coordenador'}
           erro={ligErro}
-          onChangeSuplenteId={setLigSuplenteId}
-          onChangeLiderancaId={setLigLiderancaId}
-          onChangeMunicipioId={setLigMunicipioId}
-          onLimparErro={() => setLigErro(null)}
         />
 
         <div className="section-card">
