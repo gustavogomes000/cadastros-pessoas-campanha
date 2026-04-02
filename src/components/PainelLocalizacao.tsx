@@ -236,7 +236,31 @@ export default function PainelLocalizacao() {
     }).sort((a, b) => new Date(b.lastLocation.criado_em).getTime() - new Date(a.lastLocation.criado_em).getTime());
   }, [locations, usuarios]);
 
-  // Suplentes list for filter
+  // Reverse geocode only for the expanded user (lazy, max 3 at a time)
+  useEffect(() => {
+    if (!expandedUser) return;
+    const group = userGroups.find(g => g.usuario_id === expandedUser);
+    if (!group) return;
+    const toGeocode = group.locations
+      .filter(l => !addresses[`${l.latitude.toFixed(4)},${l.longitude.toFixed(4)}`])
+      .slice(0, 3);
+    if (!toGeocode.length) return;
+    let cancelled = false;
+    (async () => {
+      const newAddrs: Record<string, string> = {};
+      for (const loc of toGeocode) {
+        if (cancelled) break;
+        const key = `${loc.latitude.toFixed(4)},${loc.longitude.toFixed(4)}`;
+        const addr = await reverseGeocode(loc.latitude, loc.longitude);
+        if (addr) newAddrs[key] = addr;
+        await new Promise(r => setTimeout(r, 1100));
+      }
+      if (!cancelled) setAddresses(prev => ({ ...prev, ...newAddrs }));
+    })();
+    return () => { cancelled = true; };
+  }, [expandedUser, userGroups, addresses]);
+
+
   const suplentesUnicos = useMemo(() => {
     const ids = new Set<string>();
     const result: { id: string; nome: string }[] = [];
