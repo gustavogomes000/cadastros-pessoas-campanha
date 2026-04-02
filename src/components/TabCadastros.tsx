@@ -10,7 +10,7 @@ import { toast } from '@/hooks/use-toast';
 
 import SkeletonLista from '@/components/SkeletonLista';
 
-type TipoFiltro = 'todos' | 'lideranca' | 'fiscal' | 'eleitor';
+type TipoFiltro = 'todos' | 'lideranca' | 'eleitor';
 
 interface CadastroUnificado {
   id: string;
