@@ -66,7 +66,6 @@ export default function CadastrosExternos() {
 
   const fkCadastradoPor: Record<TipoAba, string> = {
     liderancas: 'liderancas_cadastrado_por_fkey',
-    fiscais: 'fiscais_cadastrado_por_fkey',
     eleitores: 'possiveis_eleitores_cadastrado_por_fkey',
   };
 
