@@ -588,9 +588,10 @@ export default function AdminDashboard() {
                   </div>
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                     r.tipo === 'lideranca' ? 'bg-primary/10 text-primary'
+                    : r.tipo === 'fiscal' ? 'bg-amber-500/15 text-amber-600'
                     : 'bg-secondary text-secondary-foreground'
                   }`}>
-                    {r.tipo === 'lideranca' ? 'Liderança' : 'Eleitor'}
+                    {r.tipo === 'lideranca' ? 'Liderança' : r.tipo === 'fiscal' ? 'Fiscal' : 'Eleitor'}
                   </span>
                 </div>
               ))}
