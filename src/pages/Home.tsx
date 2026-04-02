@@ -80,7 +80,16 @@ export default function Home() {
               <TabCadastros refreshKey={refreshKey} onSaved={handleSaved} />
             </div>
           )}
-          {activeTab === 'rastreamento' && <PainelLocalizacao />}
+          {activeTab === 'rastreamento' && (
+            <Suspense fallback={
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <Loader2 size={28} className="animate-spin text-primary" />
+                <p className="text-xs text-muted-foreground">Carregando rastreamento...</p>
+              </div>
+            }>
+              <PainelLocalizacao />
+            </Suspense>
+          )}
           {activeTab === 'perfil' && <TabPerfil />}
         </div>
       </div>
