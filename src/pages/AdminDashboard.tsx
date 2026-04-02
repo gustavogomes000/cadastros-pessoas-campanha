@@ -127,24 +127,26 @@ export default function AdminDashboard() {
 
   const filteredL = useMemo(() => liderancas.filter(r => dateFilter(r.criado_em)), [liderancas, dateFilter]);
   const filteredE = useMemo(() => eleitores.filter(r => dateFilter(r.criado_em)), [eleitores, dateFilter]);
+  const filteredF = useMemo(() => fiscais.filter(r => r.criado_em && dateFilter(r.criado_em)), [fiscais, dateFilter]);
 
   const totais = useMemo(() => ({
-    l: filteredL.length, e: filteredE.length,
-    total: filteredL.length + filteredE.length,
-  }), [filteredL, filteredE]);
+    l: filteredL.length, e: filteredE.length, f: filteredF.length,
+    total: filteredL.length + filteredE.length + filteredF.length,
+  }), [filteredL, filteredE, filteredF]);
 
   /* ── Ranking ── */
   const rankingUsuarios = useMemo(() => {
-    const map: Record<string, { l: number; e: number }> = {};
-    filteredL.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, e: 0 }; map[r.cadastrado_por].l++; });
-    filteredE.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, e: 0 }; map[r.cadastrado_por].e++; });
+    const map: Record<string, { l: number; e: number; f: number }> = {};
+    filteredL.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, e: 0, f: 0 }; map[r.cadastrado_por].l++; });
+    filteredE.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, e: 0, f: 0 }; map[r.cadastrado_por].e++; });
+    filteredF.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, e: 0, f: 0 }; map[r.cadastrado_por].f++; });
     return Object.entries(map)
       .map(([id, stats]) => {
         const u = usuarios.find(u => u.id === id);
-        return { id, nome: u?.nome || 'Desconhecido', tipo: u?.tipo || '—', municipio_id: u?.municipio_id || null, total: stats.l + stats.e, ...stats };
+        return { id, nome: u?.nome || 'Desconhecido', tipo: u?.tipo || '—', municipio_id: u?.municipio_id || null, total: stats.l + stats.e + stats.f, ...stats };
       })
       .sort((a, b) => b.total - a.total);
-  }, [filteredL, filteredE, usuarios]);
+  }, [filteredL, filteredE, filteredF, usuarios]);
 
   /* ── Users list ── */
   const filteredUsers = useMemo(() => {
