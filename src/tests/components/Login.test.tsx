@@ -26,12 +26,12 @@ vi.mock('@/components/ConstellationBg', () => ({
   default: () => null,
 }));
 
-vi.mock('@/assets/fernanda-sarelli.jpg', () => ({
-  default: 'mock-image.jpg',
+vi.mock('@/assets/fernanda-sarelli.webp', () => ({
+  default: 'mock-image.webp',
 }));
 
-vi.mock('@/assets/logo-sarelli.png', () => ({
-  default: 'mock-logo.png',
+vi.mock('@/assets/logo-sarelli.webp', () => ({
+  default: 'mock-logo.webp',
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
