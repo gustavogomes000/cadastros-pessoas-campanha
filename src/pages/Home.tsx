@@ -26,6 +26,7 @@ function getInitialTab(): TabId {
 
 export default function Home() {
   const { isAdmin, tipoUsuario } = useAuth();
+  useRealtimeSync();
   const { municipios } = useCidade();
   const [activeTab, setActiveTab] = useState<TabId>(() => getInitialTab());
   const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set([getInitialTab()]));
