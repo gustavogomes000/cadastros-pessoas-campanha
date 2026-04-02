@@ -292,7 +292,6 @@ export default function TabRede() {
   if (mode === 'detail' && selectedSuplente) {
     const s = selectedSuplente;
     const totalL = liderancas.length;
-    const totalF = fiscais.length;
     const totalE = eleitores.length;
     const confirmados = eleitores.filter(e => e.compromisso_voto === 'Confirmado').length;
 
