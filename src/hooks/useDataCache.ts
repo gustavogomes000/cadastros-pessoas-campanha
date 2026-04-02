@@ -12,6 +12,8 @@ const keys = {
     ['eleitores', munId, scope] as const,
   usuarios: () => ['hierarquia_usuarios'] as const,
   contagens: (munId: string | null) => ['contagens', munId] as const,
+  fiscais: (munId: string | null, scope: string) =>
+    ['fiscais', munId, scope] as const,
 };
 
 /* ── Shared filter logic ── */
