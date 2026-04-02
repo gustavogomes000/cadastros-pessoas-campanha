@@ -56,7 +56,6 @@ interface CadastroUnificado {
 
 const tipoConfig = {
   lideranca: { label: 'Liderança', icon: Users, color: 'bg-purple-500/10 text-purple-600', dot: 'bg-purple-500' },
-  fiscal: { label: 'Fiscal', icon: Shield, color: 'bg-emerald-500/10 text-emerald-600', dot: 'bg-emerald-500' },
   eleitor: { label: 'Eleitor', icon: Target, color: 'bg-blue-500/10 text-blue-600', dot: 'bg-blue-500' },
 };
 
