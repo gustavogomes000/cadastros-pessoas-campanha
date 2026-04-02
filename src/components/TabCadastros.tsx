@@ -102,9 +102,6 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
     meta_votos: null as number | null,
     nivel_comprometimento: null as string | null,
     origem_captacao: item.origem_captacao || null,
-    zona_fiscal: null as string | null,
-    secao_fiscal: null as string | null,
-    colegio_fiscal: null as string | null,
     lideranca_nome: null as string | null,
     compromisso_voto: null as string | null,
   });
