@@ -132,17 +132,6 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
         });
       }
     }
-    if (fisData) {
-      for (const f of fisData as any[]) {
-        results.push({
-          ...mapBase(f), id: f.id, tipo: 'fiscal',
-          status: f.status, regiao: null,
-          zona_fiscal: f.zona_fiscal || null,
-          secao_fiscal: f.secao_fiscal || null,
-          colegio_fiscal: f.colegio_eleitoral || null,
-        });
-      }
-    }
     if (eleData) {
       for (const e of eleData as any[]) {
         results.push({
@@ -150,13 +139,13 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
           status: e.compromisso_voto, regiao: null,
           compromisso_voto: e.compromisso_voto || null,
           lideranca_nome: e.liderancas?.pessoas?.nome || null,
-          fiscal_nome: e.fiscais?.pessoas?.nome || null,
+          fiscal_nome: null,
         });
       }
     }
     results.sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
     return results;
-  }, [lidData, fisData, eleData]);
+  }, [lidData, eleData]);
 
   useEffect(() => {
     if (refreshKey > 0) invalidarCadastros();
