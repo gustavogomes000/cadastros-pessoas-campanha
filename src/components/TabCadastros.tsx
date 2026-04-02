@@ -215,6 +215,7 @@ export default function TabCadastros({ refreshKey, onSaved }: Props) {
       <div className="relative">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
+          data-testid="input-busca-cadastros"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder="Buscar por nome, CPF, telefone ou agente..."
