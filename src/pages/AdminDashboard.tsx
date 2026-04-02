@@ -10,7 +10,7 @@ import {
   ChevronDown, ChevronUp, Loader2, Download, Trophy,
   BarChart3, UserCog, Eye, Building2, Plus, MapPin, Tag, ExternalLink
 } from 'lucide-react';
-import { exportAllCadastros } from '@/lib/exportXlsx';
+import { exportAllCadastros, exportCadastrosFiltered } from '@/lib/exportXlsx';
 import SeletorCidade from '@/components/SeletorCidade';
 import TabLiderancasExternas from '@/components/TabLiderancasExternas';
 
@@ -90,6 +90,8 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [exporting, setExporting] = useState(false);
   const [tipoUsuarioFiltro, setTipoUsuarioFiltro] = useState<TipoUsuarioFiltro>('todos');
+  const [rankingTipoUsuario, setRankingTipoUsuario] = useState<TipoUsuarioFiltro>('todos');
+  const [rankingSearch, setRankingSearch] = useState('');
 
   const { data: liderancasData, isLoading: lLoading } = useLiderancas('all');
   const { data: eleitoresData, isLoading: eLoading } = useEleitores('all');
@@ -134,9 +136,13 @@ export default function AdminDashboard() {
     total: filteredL.length + filteredE.length + filteredF.length,
   }), [filteredL, filteredE, filteredF]);
 
-  /* ── Ranking ── */
+  /* ── Ranking (inclui TODOS os usuários, mesmo com 0 cadastros) ── */
   const rankingUsuarios = useMemo(() => {
     const map: Record<string, { l: number; e: number; f: number }> = {};
+    // Inicializar todos os usuários (exceto super_admin)
+    usuarios.filter(u => u.tipo !== 'super_admin').forEach(u => {
+      map[u.id] = { l: 0, e: 0, f: 0 };
+    });
     filteredL.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, e: 0, f: 0 }; map[r.cadastrado_por].l++; });
     filteredE.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, e: 0, f: 0 }; map[r.cadastrado_por].e++; });
     filteredF.forEach(r => { if (!r.cadastrado_por) return; if (!map[r.cadastrado_por]) map[r.cadastrado_por] = { l: 0, e: 0, f: 0 }; map[r.cadastrado_por].f++; });
@@ -145,7 +151,7 @@ export default function AdminDashboard() {
         const u = usuarios.find(u => u.id === id);
         return { id, nome: u?.nome || 'Desconhecido', tipo: u?.tipo || '—', municipio_id: u?.municipio_id || null, total: stats.l + stats.e + stats.f, ...stats };
       })
-      .sort((a, b) => b.total - a.total);
+      .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
   }, [filteredL, filteredE, filteredF, usuarios]);
 
   /* ── Users list ── */
@@ -187,10 +193,10 @@ export default function AdminDashboard() {
   const getUserName = (id: string | null) => id ? (usuarios.find(u => u.id === id)?.nome || '—') : '—';
   const getMedalEmoji = (i: number) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`;
 
-  const handleExport = async (tipo?: 'lideranca' | 'eleitor') => {
+  const handleExport = async (tipo?: 'lideranca' | 'eleitor' | 'fiscal', cadastradoPorId?: string, cadastradoPorNome?: string) => {
     setExporting(true);
     try {
-      const count = await exportAllCadastros(tipo);
+      const count = await exportCadastrosFiltered({ tipo, cadastradoPorId, cadastradoPorNome });
       toast({ title: `✅ ${count} registros exportados!` });
     } catch (err: any) {
       toast({ title: 'Erro ao exportar', description: err.message, variant: 'destructive' });
@@ -277,7 +283,7 @@ export default function AdminDashboard() {
         {/* ── Tab navigation ── */}
         <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
           {vistaLabels.map(({ id, icon: Icon, label }) => (
-            <button key={id} onClick={() => { setVistaAtiva(id); setSearchTerm(''); setExpandedUser(null); }}
+            <button key={id} onClick={() => { setVistaAtiva(id); setSearchTerm(''); setRankingSearch(''); setExpandedUser(null); setTipoFiltro('todos'); setRankingTipoUsuario('todos'); }}
               className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
                 vistaAtiva === id ? 'gradient-primary text-white shadow-sm' : 'bg-muted text-muted-foreground'
               }`}>
@@ -449,31 +455,61 @@ export default function AdminDashboard() {
 
         {/* ══════════ RANKING ══════════ */}
         {vistaAtiva === 'ranking' && (() => {
-          const filtered = rankingUsuarios.filter(u => {
-            if (tipoFiltro === 'todos') return true;
-            if (tipoFiltro === 'lideranca') return u.l > 0;
-            if (tipoFiltro === 'fiscal') return u.f > 0;
-            return u.e > 0;
-          });
-          const maxTotal = filtered.length > 0 ? filtered[0].total : 1;
+          let filtered = rankingUsuarios;
+
+          // Filtro por tipo de usuário
+          if (rankingTipoUsuario !== 'todos') filtered = filtered.filter(u => u.tipo === rankingTipoUsuario);
+
+          // Filtro por tipo de cadastro
+          if (tipoFiltro === 'lideranca') filtered = filtered.filter(u => u.l > 0);
+          else if (tipoFiltro === 'eleitor') filtered = filtered.filter(u => u.e > 0);
+          else if (tipoFiltro === 'fiscal') filtered = filtered.filter(u => u.f > 0);
+
+          // Busca por nome
+          if (rankingSearch) {
+            const s = rankingSearch.toLowerCase();
+            filtered = filtered.filter(u => u.nome.toLowerCase().includes(s));
+          }
+
+          const maxTotal = filtered.length > 0 ? Math.max(...filtered.map(u => u.total), 1) : 1;
 
           return (
           <div className="space-y-3">
+            {/* Busca */}
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input type="text" placeholder="Buscar usuário..." value={rankingSearch} onChange={e => setRankingSearch(e.target.value)}
+                className="w-full h-10 pl-9 pr-4 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground" />
+            </div>
+
+            {/* Filtro por tipo de usuário */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+              {(Object.keys(tipoUsuarioLabels) as TipoUsuarioFiltro[]).map(t => (
+                <button key={t} onClick={() => setRankingTipoUsuario(t)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all active:scale-95 ${
+                    rankingTipoUsuario === t ? 'gradient-primary text-white' : 'bg-muted text-muted-foreground'
+                  }`}>{tipoUsuarioLabels[t]}</button>
+              ))}
+            </div>
+
+            {/* Filtro por tipo de cadastro */}
             <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
               {(Object.keys(tipoFiltroLabels) as TipoFiltro[]).map(t => (
                 <button key={t} onClick={() => setTipoFiltro(t)}
                   className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all active:scale-95 ${
-                    tipoFiltro === t ? 'gradient-primary text-white' : 'bg-muted text-muted-foreground'
+                    tipoFiltro === t ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'
                   }`}>{tipoFiltroLabels[t]}</button>
               ))}
             </div>
 
+            <p className="text-xs text-muted-foreground">{filtered.length} usuário{filtered.length !== 1 ? 's' : ''}</p>
+
             {filtered.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">Nenhum cadastro no período</p>
+              <p className="text-sm text-muted-foreground text-center py-6">Nenhum usuário encontrado</p>
             ) : (
               <div className="space-y-2">
-                {/* Top 3 destaque */}
-                {filtered.length >= 3 && (
+                {/* Top 3 destaque (só quando sem busca e filtro "todos") */}
+                {!rankingSearch && rankingTipoUsuario === 'todos' && tipoFiltro === 'todos' && filtered.length >= 3 && (
                   <div className="grid grid-cols-3 gap-2 mb-2">
                     {filtered.slice(0, 3).map((u, i) => {
                       const sizes = [
@@ -502,36 +538,107 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* Restante do ranking com barras */}
-                {filtered.slice(filtered.length >= 3 ? 3 : 0).map((u, i) => {
-                  const pos = filtered.length >= 3 ? i + 3 : i;
-                  const pct = Math.round((u.total / maxTotal) * 100);
+                {/* Lista do ranking com expandir */}
+                {filtered.slice((!rankingSearch && rankingTipoUsuario === 'todos' && tipoFiltro === 'todos' && filtered.length >= 3) ? 3 : 0).map((u, i) => {
+                  const pos = (!rankingSearch && rankingTipoUsuario === 'todos' && tipoFiltro === 'todos' && filtered.length >= 3) ? i + 3 : i;
+                  const pct = maxTotal > 0 ? Math.round((u.total / maxTotal) * 100) : 0;
+                  const isExpanded = expandedUser === u.id;
+                  const uLiderancas = filteredL.filter(r => r.cadastrado_por === u.id);
+                  const uEleitores = filteredE.filter(r => r.cadastrado_por === u.id);
+                  const uFiscais = filteredF.filter(r => r.cadastrado_por === u.id);
+
                   return (
-                    <div key={u.id} onClick={() => setPopupUser(u.id)} className="relative p-3 rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:shadow-md transition-all active:scale-[0.98]">
-                      {/* Barra de progresso de fundo */}
-                      <div
-                        className="absolute inset-y-0 left-0 bg-primary/[0.06] rounded-xl transition-all duration-500"
-                        style={{ width: `${pct}%` }}
-                      />
-                      <div className="relative flex items-center gap-2.5">
-                        <span className="text-sm font-bold text-muted-foreground w-7 text-center shrink-0">{pos + 1}º</span>
-                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <span className="text-sm font-bold text-primary">{u.nome.charAt(0)}</span>
+                    <div key={u.id} className="section-card !p-0 overflow-hidden">
+                      <button
+                        onClick={() => { setExpandedUser(isExpanded ? null : u.id); setExpandedTipo(null); }}
+                        className="w-full text-left relative overflow-hidden"
+                      >
+                        {/* Barra de progresso de fundo */}
+                        <div
+                          className="absolute inset-y-0 left-0 bg-primary/[0.06] transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                        <div className="relative p-3 flex items-center gap-2.5">
+                          <span className="text-sm font-bold text-muted-foreground w-7 text-center shrink-0">{pos + 1}º</span>
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="text-sm font-bold text-primary">{u.nome.charAt(0)}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">{u.nome}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{tipoLabel(u.tipo)}</span>
+                              {u.municipio_id && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><MapPin size={8} />{nomeMunicipioPorId(u.municipio_id)}</span>}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-lg font-bold text-primary">{u.total}</p>
+                            <p className="text-[8px] text-muted-foreground">cadastros</p>
+                          </div>
+                          {isExpanded ? <ChevronUp size={14} className="text-muted-foreground shrink-0" /> : <ChevronDown size={14} className="text-muted-foreground shrink-0" />}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{u.nome}</p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{tipoLabel(u.tipo)}</span>
-                            {u.municipio_id && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><MapPin size={8} />{nomeMunicipioPorId(u.municipio_id)}</span>}
+                      </button>
+
+                      {isExpanded && (
+                        <div className="border-t border-border px-3 pb-3 pt-2 space-y-2">
+                          {/* Counts */}
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { key: 'lideranca', label: 'Lideranças', count: uLiderancas.length, icon: Users },
+                              { key: 'eleitor', label: 'Eleitores', count: uEleitores.length, icon: Target },
+                              { key: 'fiscal', label: 'Fiscais', count: uFiscais.length, icon: Shield },
+                            ].map(({ key, label, count, icon: Icon }) => (
+                              <button key={key}
+                                onClick={() => setExpandedTipo(expandedTipo === key ? null : key)}
+                                className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all active:scale-95 ${
+                                  expandedTipo === key ? 'border-primary bg-primary/5' : 'border-border bg-card'
+                                }`}
+                              >
+                                <Icon size={14} className={expandedTipo === key ? 'text-primary' : 'text-muted-foreground'} />
+                                <span className="text-lg font-bold text-foreground">{count}</span>
+                                <span className="text-[9px] text-muted-foreground">{label}</span>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Expanded records */}
+                          {expandedTipo && (
+                            <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+                              {(() => {
+                                const records = expandedTipo === 'lideranca' ? uLiderancas
+                                  : expandedTipo === 'fiscal' ? uFiscais
+                                  : uEleitores;
+                                if (records.length === 0) return <p className="text-xs text-muted-foreground text-center py-4">Nenhum registro</p>;
+                                return records.map((r: any) => {
+                                  const p = r.pessoas || {};
+                                  return (
+                                    <div key={r.id} className="p-2 rounded-lg bg-muted/50 border border-border/50">
+                                      <p className="text-xs font-semibold text-foreground">{p.nome || '—'}</p>
+                                      <div className="flex flex-wrap gap-x-3 text-[10px] text-muted-foreground">
+                                        {p.cpf && <span>CPF: {p.cpf}</span>}
+                                        {p.telefone && <span>Tel: {p.telefone}</span>}
+                                        {p.whatsapp && <span>WhatsApp: {p.whatsapp}</span>}
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              })()}
+                            </div>
+                          )}
+
+                          {/* Export & detail buttons */}
+                          <div className="flex gap-2 pt-1">
+                            <button onClick={() => setPopupUser(u.id)}
+                              className="flex-1 h-9 flex items-center justify-center gap-1.5 bg-primary/10 text-primary rounded-xl text-xs font-semibold active:scale-95 transition-all">
+                              <Eye size={12} /> Ver detalhes
+                            </button>
+                            <button onClick={() => handleExport(undefined, u.id, u.nome)} disabled={exporting}
+                              className="flex-1 h-9 flex items-center justify-center gap-1.5 bg-card border border-border rounded-xl text-xs font-medium text-foreground active:scale-95 transition-all disabled:opacity-50">
+                              {exporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                              Exportar
+                            </button>
                           </div>
                         </div>
-                        <div className="flex gap-1 shrink-0">
-                          {u.l > 0 && <span className="text-[9px] font-bold px-1.5 py-1 rounded-lg bg-primary/15 text-primary">Lid. {u.l}</span>}
-                          {u.e > 0 && <span className="text-[9px] font-bold px-1.5 py-1 rounded-lg bg-secondary text-secondary-foreground">Eleit. {u.e}</span>}
-                          {u.f > 0 && <span className="text-[9px] font-bold px-1.5 py-1 rounded-lg bg-amber-500/15 text-amber-600">Fisc. {u.f}</span>}
-                        </div>
-                        <p className="text-xl font-black text-primary shrink-0 min-w-[2rem] text-right">{u.total}</p>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
@@ -541,7 +648,7 @@ export default function AdminDashboard() {
             <button onClick={() => handleExport(tipoFiltro === 'todos' ? undefined : tipoFiltro as any)} disabled={exporting}
               className="w-full h-10 flex items-center justify-center gap-2 bg-card border border-border rounded-xl text-sm font-medium text-foreground active:scale-[0.97] transition-all disabled:opacity-50">
               {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              Exportar (Excel)
+              Exportar Todos (Excel)
             </button>
           </div>
           );
