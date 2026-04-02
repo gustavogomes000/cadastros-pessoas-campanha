@@ -106,27 +106,23 @@ export default function TabRede() {
     const userIds = (usuarios || []).map(u => u.id);
 
     if (userIds.length === 0) {
-      setLiderancas([]); setFiscais([]); setEleitores([]);
+      setLiderancas([]); setEleitores([]);
       setLoadingDetail(false);
       return;
     }
 
     const orFilter = `cadastrado_por.in.(${userIds.join(',')}),suplente_id.eq.${suplente.id}`;
 
-    const [lRes, fRes, eRes] = await Promise.all([
+    const [lRes, eRes] = await Promise.all([
       (supabase as any).from('liderancas')
         .select('id, status, tipo_lideranca, nivel, regiao_atuacao, zona_atuacao, bairros_influencia, apoiadores_estimados, meta_votos, nivel_comprometimento, observacoes, origem_captacao, criado_em, pessoas(*), hierarquia_usuarios!liderancas_cadastrado_por_fkey(nome)')
         .or(orFilter).order('criado_em', { ascending: false }),
-      (supabase as any).from('fiscais')
-        .select('id, status, zona_fiscal, secao_fiscal, colegio_eleitoral, observacoes, origem_captacao, criado_em, pessoas(*), hierarquia_usuarios!fiscais_cadastrado_por_fkey(nome)')
-        .or(orFilter).order('criado_em', { ascending: false }),
       (supabase as any).from('possiveis_eleitores')
-        .select('id, compromisso_voto, observacoes, origem_captacao, criado_em, pessoas(*), hierarquia_usuarios!possiveis_eleitores_cadastrado_por_fkey(nome), liderancas(id, pessoas(nome)), fiscais(id, pessoas(nome))')
+        .select('id, compromisso_voto, observacoes, origem_captacao, criado_em, pessoas(*), hierarquia_usuarios!possiveis_eleitores_cadastrado_por_fkey(nome), liderancas(id, pessoas(nome))')
         .or(orFilter).order('criado_em', { ascending: false }),
     ]);
 
     setLiderancas((lRes.data || []) as LiderancaItem[]);
-    setFiscais((fRes.data || []) as FiscalItem[]);
     setEleitores((eRes.data || []) as EleitorItem[]);
     setLoadingDetail(false);
   };
