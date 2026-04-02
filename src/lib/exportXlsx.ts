@@ -21,13 +21,20 @@ interface ExportRow {
   cadastrado_por_nome: string;
   criado_em: string;
   extras: string;
+  origem: string;
+}
+
+export interface ExportFilters {
+  tipo?: 'lideranca' | 'eleitor' | 'fiscal';
+  cadastradoPorId?: string;
+  cadastradoPorNome?: string;
 }
 
 const headers = [
   'Tipo', 'Nome', 'CPF', 'Telefone', 'WhatsApp', 'E-mail',
   'Instagram', 'Facebook', 'Título Eleitor', 'Zona', 'Seção',
   'Município', 'UF', 'Colégio', 'End. Colégio', 'Situação Título',
-  'Status', 'Cadastrado por', 'Data Cadastro', 'Detalhes',
+  'Status', 'Cadastrado por', 'Data Cadastro', 'Origem', 'Detalhes',
 ];
 
 function formatDate(d: string | null): string {
@@ -35,7 +42,11 @@ function formatDate(d: string | null): string {
   return new Date(d).toLocaleDateString('pt-BR');
 }
 
-export async function exportAllCadastros(tipo?: 'lideranca' | 'eleitor') {
+export async function exportAllCadastros(tipo?: 'lideranca' | 'eleitor', cadastradoPorId?: string) {
+  return exportCadastrosFiltered({ tipo, cadastradoPorId });
+}
+
+export async function exportCadastrosFiltered(filters: ExportFilters = {}) {
   const XLSX = await import('xlsx');
   const agentesMap: Record<string, string> = {};
   const { data: agentes } = await supabase.from('hierarquia_usuarios').select('id, nome');
@@ -43,8 +54,11 @@ export async function exportAllCadastros(tipo?: 'lideranca' | 'eleitor') {
 
   const rows: ExportRow[] = [];
 
-  if (!tipo || tipo === 'lideranca') {
-    const { data } = await supabase.from('liderancas').select('*, pessoas(*)');
+  // Lideranças
+  if (!filters.tipo || filters.tipo === 'lideranca') {
+    let q = supabase.from('liderancas').select('*, pessoas(*)');
+    if (filters.cadastradoPorId) q = q.eq('cadastrado_por', filters.cadastradoPorId);
+    const { data } = await q;
     data?.forEach((l: any) => {
       const p = l.pessoas || {};
       rows.push({
@@ -55,14 +69,17 @@ export async function exportAllCadastros(tipo?: 'lideranca' | 'eleitor') {
         uf_eleitoral: p.uf_eleitoral || '', colegio_eleitoral: p.colegio_eleitoral || '',
         endereco_colegio: p.endereco_colegio || '', situacao_titulo: p.situacao_titulo || '',
         status: l.status || '', cadastrado_por_nome: agentesMap[l.cadastrado_por] || '',
-        criado_em: formatDate(l.criado_em),
+        criado_em: formatDate(l.criado_em), origem: l.origem_captacao || '',
         extras: [l.tipo_lideranca, l.nivel, l.regiao_atuacao, l.observacoes].filter(Boolean).join(' | '),
       });
     });
   }
 
-  if (!tipo || tipo === 'eleitor') {
-    const { data } = await supabase.from('possiveis_eleitores').select('*, pessoas(*)');
+  // Eleitores
+  if (!filters.tipo || filters.tipo === 'eleitor') {
+    let q = supabase.from('possiveis_eleitores').select('*, pessoas(*)');
+    if (filters.cadastradoPorId) q = q.eq('cadastrado_por', filters.cadastradoPorId);
+    const { data } = await q;
     data?.forEach((e: any) => {
       const p = e.pessoas || {};
       rows.push({
@@ -73,8 +90,29 @@ export async function exportAllCadastros(tipo?: 'lideranca' | 'eleitor') {
         uf_eleitoral: p.uf_eleitoral || '', colegio_eleitoral: p.colegio_eleitoral || '',
         endereco_colegio: p.endereco_colegio || '', situacao_titulo: p.situacao_titulo || '',
         status: e.compromisso_voto || 'Indefinido', cadastrado_por_nome: agentesMap[e.cadastrado_por] || '',
-        criado_em: formatDate(e.criado_em),
+        criado_em: formatDate(e.criado_em), origem: e.origem_captacao || '',
         extras: e.observacoes || '',
+      });
+    });
+  }
+
+  // Fiscais
+  if (!filters.tipo || filters.tipo === 'fiscal') {
+    let q = (supabase as any).from('fiscais').select('*, pessoas(*)');
+    if (filters.cadastradoPorId) q = q.eq('cadastrado_por', filters.cadastradoPorId);
+    const { data } = await q;
+    data?.forEach((f: any) => {
+      const p = f.pessoas || {};
+      rows.push({
+        tipo: 'Fiscal', nome: p.nome || '', cpf: p.cpf || '', telefone: p.telefone || '',
+        whatsapp: p.whatsapp || '', email: p.email || '', instagram: p.instagram || '', facebook: p.facebook || '',
+        titulo_eleitor: p.titulo_eleitor || '', zona_eleitoral: p.zona_eleitoral || '',
+        secao_eleitoral: p.secao_eleitoral || '', municipio_eleitoral: p.municipio_eleitoral || '',
+        uf_eleitoral: p.uf_eleitoral || '', colegio_eleitoral: p.colegio_eleitoral || '',
+        endereco_colegio: p.endereco_colegio || '', situacao_titulo: p.situacao_titulo || '',
+        status: f.status || '', cadastrado_por_nome: agentesMap[f.cadastrado_por] || '',
+        criado_em: formatDate(f.criado_em), origem: f.origem_captacao || '',
+        extras: [f.zona_fiscal ? `Z:${f.zona_fiscal}` : '', f.secao_fiscal ? `S:${f.secao_fiscal}` : '', f.observacoes].filter(Boolean).join(' | '),
       });
     });
   }
@@ -84,7 +122,7 @@ export async function exportAllCadastros(tipo?: 'lideranca' | 'eleitor') {
     r.instagram, r.facebook, r.titulo_eleitor, r.zona_eleitoral,
     r.secao_eleitoral, r.municipio_eleitoral, r.uf_eleitoral,
     r.colegio_eleitoral, r.endereco_colegio, r.situacao_titulo,
-    r.status, r.cadastrado_por_nome, r.criado_em, r.extras,
+    r.status, r.cadastrado_por_nome, r.criado_em, r.origem, r.extras,
   ])];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -95,7 +133,7 @@ export async function exportAllCadastros(tipo?: 'lideranca' | 'eleitor') {
         r.instagram, r.facebook, r.titulo_eleitor, r.zona_eleitoral,
         r.secao_eleitoral, r.municipio_eleitoral, r.uf_eleitoral,
         r.colegio_eleitoral, r.endereco_colegio, r.situacao_titulo,
-        r.status, r.cadastrado_por_nome, r.criado_em, r.extras];
+        r.status, r.cadastrado_por_nome, r.criado_em, r.origem, r.extras];
       const len = (vals[i] || '').length;
       if (len > max) max = len;
     });
@@ -103,12 +141,30 @@ export async function exportAllCadastros(tipo?: 'lideranca' | 'eleitor') {
   });
   ws['!cols'] = colWidths;
 
+  // Style header row
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const addr = XLSX.utils.encode_cell({ r: 0, c });
+    if (ws[addr]) {
+      ws[addr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'E8E8E8' } } };
+    }
+  }
+
   const wb = XLSX.utils.book_new();
-  const tipoLabel = tipo ? (tipo === 'lideranca' ? 'Lideranças' : 'Eleitores') : 'Cadastros';
-  XLSX.utils.book_append_sheet(wb, ws, tipoLabel);
+  let sheetName = 'Cadastros';
+  const parts: string[] = [];
+  if (filters.tipo) parts.push(filters.tipo === 'lideranca' ? 'Lideranças' : filters.tipo === 'eleitor' ? 'Eleitores' : 'Fiscais');
+  if (filters.cadastradoPorNome) parts.push(filters.cadastradoPorNome.split(' ')[0]);
+  if (parts.length) sheetName = parts.join(' - ').slice(0, 31);
 
-  const fileName = `cadastros_${tipo || 'todos'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+  const fileParts = ['cadastros'];
+  if (filters.tipo) fileParts.push(filters.tipo);
+  if (filters.cadastradoPorNome) fileParts.push(filters.cadastradoPorNome.split(' ')[0].toLowerCase());
+  fileParts.push(new Date().toISOString().slice(0, 10));
+  const fileName = `${fileParts.join('_')}.xlsx`;
+
   XLSX.writeFile(wb, fileName);
-
   return rows.length;
 }
