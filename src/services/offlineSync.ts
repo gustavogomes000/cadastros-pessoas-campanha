@@ -59,7 +59,7 @@ async function syncSingleRegistration(item: OfflineRegistration) {
     }).eq('id', pessoaId);
     if (error) throw error;
   } else {
-    const { data, error } = await supabase.from('pessoas').insert(item.pessoa).select('id').single();
+    const { data, error } = await supabase.from('pessoas').insert(item.pessoa as any).select('id').single();
     if (error) throw error;
     pessoaId = data!.id;
   }
