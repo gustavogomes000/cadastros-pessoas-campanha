@@ -12,6 +12,7 @@ const bodySchema = z.object({
   tipo: z.enum(['super_admin', 'coordenador', 'suplente', 'lideranca', 'fiscal']).optional().default('suplente'),
   superior_id: z.string().uuid().nullable().optional(),
   suplente_id: z.string().uuid().nullable().optional(),
+  municipio_id: z.string().uuid().nullable().optional(),
 });
 
 Deno.serve(async (req) => {
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { nome, senha, tipo, superior_id, suplente_id } = parsed.data;
+    const { nome, senha, tipo, superior_id, suplente_id, municipio_id } = parsed.data;
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -84,6 +85,7 @@ Deno.serve(async (req) => {
         tipo,
         superior_id: superior_id || null,
         suplente_id: suplente_id || null,
+        municipio_id: municipio_id || null,
       })
       .select('id')
       .single();
