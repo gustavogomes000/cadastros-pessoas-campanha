@@ -40,13 +40,6 @@ interface LiderancaReg {
   observacoes: string | null;
   pessoas: Pessoa | null;
 }
-  id: string; criado_em: string; cadastrado_por: string | null;
-  suplente_id: string | null; status: string | null; zona_fiscal: string | null;
-  secao_fiscal: string | null; colegio_eleitoral: string | null;
-  municipio_id: string | null; origem_captacao: string | null;
-  observacoes: string | null;
-  pessoas: Pessoa | null;
-}
 
 interface EleitorReg {
   id: string; criado_em: string; cadastrado_por: string | null;
