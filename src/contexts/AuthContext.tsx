@@ -170,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: tipo === 'super_admin' || tipo === 'coordenador',
       isSuplente: tipo === 'suplente',
       isLideranca: tipo === 'lideranca',
-      isFiscal: tipo === 'fiscal',
+      
       tipoUsuario: tipo,
       municipioId,
       municipioNome,
