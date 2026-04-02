@@ -103,6 +103,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let initialized = false;
 
+    // Safety timeout - never stay loading forever
+    const safetyTimeout = setTimeout(() => {
+      if (!initialized) {
+        console.warn('Auth timeout - forcing loading=false');
+        setLoading(false);
+        initialized = true;
+      }
+    }, 8000);
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       try {
         setUser(session?.user ?? null);
@@ -116,7 +125,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } finally {
         setLoading(false);
         initialized = true;
+        clearTimeout(safetyTimeout);
       }
+    }).catch((err) => {
+      console.error('Erro ao obter sessão:', err);
+      setLoading(false);
+      initialized = true;
+      clearTimeout(safetyTimeout);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
