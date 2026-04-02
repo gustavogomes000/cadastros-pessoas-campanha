@@ -420,7 +420,6 @@ export default function AdminDashboard() {
           const filtered = rankingUsuarios.filter(u => {
             if (tipoFiltro === 'todos') return true;
             if (tipoFiltro === 'lideranca') return u.l > 0;
-            if (tipoFiltro === 'lideranca') return u.l > 0;
             return u.e > 0;
           });
           const maxTotal = filtered.length > 0 ? filtered[0].total : 1;
