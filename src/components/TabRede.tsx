@@ -77,7 +77,6 @@ export default function TabRede() {
   // Detail state
   const [selectedSuplente, setSelectedSuplente] = useState<SuplenteItem | null>(null);
   const [liderancas, setLiderancas] = useState<LiderancaItem[]>([]);
-  const [fiscais, setFiscais] = useState<FiscalItem[]>([]);
   const [eleitores, setEleitores] = useState<EleitorItem[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
