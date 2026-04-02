@@ -24,7 +24,7 @@ interface SuplenteInfo {
 
 interface CadastroItem {
   id: string;
-  tipo: 'lideranca' | 'fiscal' | 'eleitor';
+  tipo: 'lideranca' | 'eleitor';
   nome: string;
   status: string | null;
   telefone: string | null;
@@ -38,7 +38,6 @@ const tipoConfig: Record<string, { icon: typeof User; color: string; label: stri
   coordenador: { icon: Shield, color: 'text-blue-500', label: 'Coordenador' },
   suplente: { icon: User, color: 'text-purple-500', label: 'Suplente' },
   lideranca: { icon: Users, color: 'text-emerald-500', label: 'Liderança' },
-  fiscal: { icon: Eye, color: 'text-rose-500', label: 'Fiscal' },
 };
 
 export default function TabHierarquia() {
