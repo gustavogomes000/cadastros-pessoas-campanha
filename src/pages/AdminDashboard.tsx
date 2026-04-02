@@ -786,7 +786,7 @@ export default function AdminDashboard() {
                     </div>
                   );
                 })}
-              {popupUserData.liderancas.length === 0 && popupUserData.eleitores.length === 0 && (
+              {popupUserData.liderancas.length === 0 && popupUserData.eleitores.length === 0 && popupUserData.fiscais.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">Nenhum cadastro no período selecionado</p>
               )}
             </div>
