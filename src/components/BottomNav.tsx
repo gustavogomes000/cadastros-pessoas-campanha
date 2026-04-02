@@ -27,6 +27,26 @@ export default function BottomNav({ active, onChange }: Props) {
   const navigate = useNavigate();
   const [modulos, setModulos] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // Track online/offline status
+  useEffect(() => {
+    const goOffline = () => setIsOffline(true);
+    const goOnline = () => setIsOffline(false);
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline); };
+  }, []);
+
+  // Track pending offline registrations
+  useEffect(() => {
+    const refresh = () => getPendingCount().then(setPendingCount);
+    refresh();
+    const interval = setInterval(refresh, 5000);
+    const unsub = onSyncStatusChange(refresh);
+    return () => { clearInterval(interval); unsub(); };
+  }, []);
 
   useEffect(() => {
     if (!usuario?.id) return;
