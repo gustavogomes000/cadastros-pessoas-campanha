@@ -319,11 +319,10 @@ export default function TabEleitores({ refreshKey, onSaved, viewOnly }: Props) {
           <Info label="End. colégio" value={p.endereco_colegio} />
         </div>
 
-        {(e.liderancas || e.fiscais) && (
+        {e.liderancas && (
           <div className="section-card">
             <h3 className="section-title">🔗 Vinculado a</h3>
             {e.liderancas?.pessoas?.nome && <Info label="Liderança" value={e.liderancas.pessoas.nome} />}
-            {e.fiscais?.pessoas?.nome && <Info label="Fiscal" value={e.fiscais.pessoas.nome} />}
           </div>
         )}
 
