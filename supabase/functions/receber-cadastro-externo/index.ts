@@ -323,6 +323,8 @@ Deno.serve(async (req) => {
             colegio_eleitoral: body.colegio_eleitoral,
             municipio_eleitoral: body.municipio_eleitoral,
             titulo_eleitor: body.titulo_eleitor,
+            observacoes_gerais: body.observacoes,
+            origem: body.origem ?? 'visita_comite',
           })
           .select('id')
           .single();
