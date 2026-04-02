@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,10 +9,10 @@ import LoadingScreen from "@/components/LoadingScreen";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { startAutoSync, syncOfflineData } from "@/services/offlineSync";
 
-import Login from "./pages/Login";
-import Home from "./pages/Home";
-import AdminDashboard from "./pages/AdminDashboard";
-import CadastrosExternos from "./pages/CadastrosExternos";
+const Login = lazy(() => import("./pages/Login"));
+const Home = lazy(() => import("./pages/Home"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const CadastrosExternos = lazy(() => import("./pages/CadastrosExternos"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,13 +42,15 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-      <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
-      <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
-      <Route path="/admin/externos" element={<PrivateRoute><CadastrosExternos /></PrivateRoute>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <Suspense fallback={<LoadingScreen message="Carregando..." />}>
+      <Routes>
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
+        <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
+        <Route path="/admin/externos" element={<PrivateRoute><CadastrosExternos /></PrivateRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 
@@ -57,12 +59,17 @@ function OfflineSyncManager() {
   
   useEffect(() => {
     if (!user) return;
-    startAutoSync();
+    // Defer sync start to avoid blocking initial render
+    const timer = setTimeout(() => {
+      startAutoSync();
+    }, 3000);
     
-    // Listen for SW sync messages
     const handler = () => syncOfflineData();
     window.addEventListener('sync-offline-data', handler);
-    return () => window.removeEventListener('sync-offline-data', handler);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('sync-offline-data', handler);
+    };
   }, [user]);
   
   return null;
