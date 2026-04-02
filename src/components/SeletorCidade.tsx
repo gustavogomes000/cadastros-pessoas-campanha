@@ -26,7 +26,7 @@ export default function SeletorCidade() {
 
       // Use count queries (head: true) per municipality — efficient, no row limit issues
       const counts: Record<string, ContagemCidade> = {};
-      const totals: ContagemCidade = { liderancas: 0, fiscais: 0, eleitores: 0, usuarios: 0 };
+      const totals: ContagemCidade = { liderancas: 0, eleitores: 0, usuarios: 0 };
 
       const queries = municipios.flatMap(m => [
         (supabase as any).from('liderancas').select('*', { count: 'exact', head: true }).eq('municipio_id', m.id).then((r: any) => ({ mId: m.id, tipo: 'liderancas' as const, count: r.count ?? 0 })),
