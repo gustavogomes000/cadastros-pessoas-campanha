@@ -8,8 +8,6 @@ import { useMemo, useCallback } from 'react';
 const keys = {
   liderancas: (munId: string | null, scope: string) =>
     ['liderancas', munId, scope] as const,
-  fiscais: (munId: string | null, scope: string) =>
-    ['fiscais', munId, scope] as const,
   eleitores: (munId: string | null, scope: string) =>
     ['eleitores', munId, scope] as const,
   usuarios: () => ['hierarquia_usuarios'] as const,
