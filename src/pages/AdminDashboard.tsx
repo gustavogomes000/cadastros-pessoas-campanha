@@ -526,9 +526,9 @@ export default function AdminDashboard() {
                           </div>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          {u.l > 0 && <span className="text-[10px] font-bold px-1.5 py-1 rounded-lg bg-primary/15 text-primary">L{u.l}</span>}
-                          {u.e > 0 && <span className="text-[10px] font-bold px-1.5 py-1 rounded-lg bg-secondary text-secondary-foreground">E{u.e}</span>}
-                          {u.f > 0 && <span className="text-[10px] font-bold px-1.5 py-1 rounded-lg bg-amber-500/15 text-amber-600">F{u.f}</span>}
+                          {u.l > 0 && <span className="text-[9px] font-bold px-1.5 py-1 rounded-lg bg-primary/15 text-primary">Lid. {u.l}</span>}
+                          {u.e > 0 && <span className="text-[9px] font-bold px-1.5 py-1 rounded-lg bg-secondary text-secondary-foreground">Eleit. {u.e}</span>}
+                          {u.f > 0 && <span className="text-[9px] font-bold px-1.5 py-1 rounded-lg bg-amber-500/15 text-amber-600">Fisc. {u.f}</span>}
                         </div>
                         <p className="text-xl font-black text-primary shrink-0 min-w-[2rem] text-right">{u.total}</p>
                       </div>
